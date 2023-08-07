@@ -16,6 +16,7 @@ namespace LindormContest {
      */
     TSDBEngineImpl::TSDBEngineImpl(const std::string &dataDirPath)
             : TSDBEngine(dataDirPath) {
+
     }
 
     int TSDBEngineImpl::connect() {
@@ -44,4 +45,4 @@ namespace LindormContest {
 
     TSDBEngineImpl::~TSDBEngineImpl() = default;
 
-}
+} // End namespace LindormContest.

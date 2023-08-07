@@ -1,5 +1,10 @@
 cmake_minimum_required(VERSION 2.8.12)
-project(lindorm-tsdb-contest-cpp)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)   # For clang-tidy.
+set(BUILD_SHARED_LIBS OFF)              # We expect external libraries to be linked statically.
+set(CMAKE_CXX_STANDARD 17)              # Compile as C++17.
+set(CMAKE_CXX_STANDARD_REQUIRED ON)     # Require C++17 support.
+
+project(ljdb)
 
 # We use g++-12 to compile, so that we recommend you to use the same compiler to test for better compatibility.
 message("Your OS: ${CMAKE_HOST_SYSTEM_NAME}")
@@ -13,9 +18,28 @@ else ()
     set(CMAKE_CXX_COMPILER "g++")
 endif ()
 
-include_directories(${PROJECT_SOURCE_DIR}/include)
-add_subdirectory(example)
 
-file(GLOB_RECURSE sources_c "${PROJECT_SOURCE_DIR}/source" *.c)
-file(GLOB_RECURSE sources_cpp "${PROJECT_SOURCE_DIR}/source" *.cpp)
-add_library(yourDbLib ${sources_c} ${sources_cpp})
+######################################################################################################################
+# DEPENDENCIES
+######################################################################################################################
+
+# CTest
+enable_testing()
+
+######################################################################################################################
+# COMPILER SETUP
+######################################################################################################################
+
+# Includes.
+include_directories(${PROJECT_SOURCE_DIR}/include)
+include_directories(${PROJECT_SOURCE_DIR}/tests/include)
+include_directories(BEFORE source) # This is needed for gtest.
+
+######################################################################################################################
+# Other CMake modules
+# MUST BE ADDED AFTER CONFIGURING COMPILER PARAMETERS
+######################################################################################################################
+
+add_subdirectory(source)
+add_subdirectory(tests)
+add_subdirectory(example)
