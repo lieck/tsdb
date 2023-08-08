@@ -1,3 +1,4 @@
+add_subdirectory(cache)
 add_subdirectory(db)
 add_subdirectory(disk)
 add_subdirectory(mem_table)

@@ -4,8 +4,10 @@ add_library(
         background.cpp
         compaction.cpp
         format.cpp
+        merger_iterator.cpp
         table.cpp
         meta_data.cpp
+        two_level_iterator.cpp
 )
 
 set(ALL_OBJECT_FILES

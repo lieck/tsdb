@@ -6,7 +6,7 @@
 #include <vector>
 #include <memory>
 
-#include "db/iterator.h"
+#include "common/iterator.h"
 #include "db/format.h"
 
 

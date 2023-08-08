@@ -17,19 +17,21 @@ private:
     class SSTableIterator;
 
 public:
-    explicit SSTable(file_number_t file_number) {
+    explicit SSTable(file_number_t file_number) : file_number_(file_number) {
         file_ = DiskManager::OpenSSTableFile(file_number);
         ReadMetaBlock();
     }
 
-    SSTable(file_number_t file_number, std::vector<BlockMeta> &&block_metas, uint64_t meta_block_offset)
-        : block_metas_(std::move(block_metas)), meta_block_offset_(meta_block_offset) {
+    explicit SSTable(file_number_t file_number, std::vector<BlockMeta> &&block_metas, uint64_t meta_block_offset)
+        : block_metas_(std::move(block_metas)), meta_block_offset_(meta_block_offset), file_number_(file_number) {
         file_ = DiskManager::OpenSSTableFile(file_number);
     }
 
     DISALLOW_COPY_AND_MOVE(SSTable);
 
     auto NewIterator() -> std::unique_ptr<Iterator>;
+
+    auto GetFileNumber() const -> file_number_t { return file_number_; }
 
     // get the number of blocks
     auto GetBlockNum() const -> uint32_t { return block_metas_.size(); }
@@ -46,6 +48,8 @@ private:
 
     // the file of the sstable
     std::ifstream file_;
+
+    file_number_t file_number_;
 
     std::vector<BlockMeta> block_metas_;
 

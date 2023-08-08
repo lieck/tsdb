@@ -1,7 +1,6 @@
 add_library(
         ljdb_mem_table
         OBJECT
-        iterator.cpp
         mem_table.cpp
 )
 

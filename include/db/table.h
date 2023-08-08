@@ -78,9 +78,6 @@ private:
     auto BackgroundCompaction() -> void;
 
 
-    // 将 memtable 压缩到磁盘中
-    void CompactMemTable();
-
     size_t approximate_row_size_ = 0;
 
     std::string table_name_;
@@ -90,6 +87,8 @@ private:
 
 
     TableMetaData table_meta_data_;
+    TableCache *table_cache_;
+
 
     std::mutex mutex_;
     std::condition_variable cv_;
@@ -97,8 +96,6 @@ private:
     std::shared_ptr<MemTable> mem_;
     std::shared_ptr<MemTable> imm_;
     bool imm_compact_finished_ = false;
-
-
 };
 
 }; // namespace ljdb

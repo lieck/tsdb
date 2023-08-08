@@ -2,17 +2,23 @@
 
 #include <atomic>
 #include <utility>
+#include <algorithm>
 
 #include "common/config.h"
 #include "format.h"
+#include "common/iterator.h"
 
 
 namespace ljdb {
 
 class FileMetaData {
 public:
+    explicit FileMetaData() {}
+
     explicit FileMetaData(file_number_t file_number, InternalKey smallest, InternalKey largest)
         : file_number_(file_number), smallest_(std::move(smallest)), largest_(std::move(largest)) {}
+
+    explicit FileMetaData(const std::string &src);
 
     void DecodeFrom(const std::string& src);
 
@@ -29,7 +35,7 @@ public:
     auto operator<(const FileMetaData& rhs) const -> bool {
         return smallest_ < rhs.smallest_;
     }
-private:
+
     file_number_t file_number_;
 
     uint64_t file_size_;
@@ -42,7 +48,7 @@ private:
 
 struct TableMetaData {
 public:
-    auto GetFileMetaData(int32_t level) const -> const std::set<FileMetaData>& {
+    auto GetFileMetaData(int32_t level) const -> const std::vector<FileMetaData*>& {
         return files_[level];
     }
 
@@ -50,8 +56,9 @@ public:
         return next_file_number_.fetch_add(1);
     }
 
-    void AddFileMetaData(int32_t level, const FileMetaData& file) {
-        files_[level].insert(file);
+    void AddFileMetaData(int32_t level, const std::vector<FileMetaData*> &file) {
+        files_[level].insert(files_[level].end(), file.begin(), file.end());
+        std::sort(files_[level].begin(), files_[level].end());
     }
 
     // 返回 level 层与 [begin, end] 存在重叠的文件
@@ -65,7 +72,10 @@ private:
     int32_t table_number_;
     std::atomic_int32_t next_file_number_;
 
-    std::set<FileMetaData> files_[K_NUM_LEVELS];
+    std::vector<FileMetaData*> files_[K_NUM_LEVELS];
 };
+
+
+auto NewFileMetaDataIterator(const std::vector<FileMetaData *> &files) -> std::unique_ptr<Iterator>;
 
 }; // namespace ljdb

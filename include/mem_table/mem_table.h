@@ -4,7 +4,7 @@
 #include "common/macros.h"
 #include "db/format.cpp"
 #include "sklip_list.h"
-#include "db/iterator.h"
+#include "common/iterator.h"
 
 namespace ljdb {
 
