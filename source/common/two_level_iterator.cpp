@@ -1,4 +1,4 @@
-#include "db/two_level_iterator.h"
+#include "common/two_level_iterator.h"
 
 namespace ljdb {
 

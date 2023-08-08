@@ -9,7 +9,7 @@
 #include "mem_table/mem_table.h"
 #include "common/namespace.h"
 #include "format.h"
-#include "meta_data.h"
+#include "table_meta_data.h"
 #include "background.h"
 #include "compaction.h"
 
@@ -69,33 +69,35 @@ private:
 
     auto SSTableRangeQuery(size_t level, const TimeRangeQueryRequest &trReadReq, std::vector<Row> &trReadRes) -> void;
 
-
     // 后台线程任务
     static void BGWork(void* table);
     void BackgroundCall();
 
+    // 要求：持有锁
     void MaybeScheduleCompaction();
-    auto BackgroundCompaction() -> void;
 
+    // 要求：持有锁
+    auto BackgroundCompaction(std::unique_lock<std::mutex> &lock) -> void;
 
-    size_t approximate_row_size_ = 0;
+    // 执行 Manual Compaction
+    auto DoManualCompaction(CompactionTask* task) -> bool;
+
+    // 执行 Minor Compaction
+    auto CompactMemTable(const std::shared_ptr<MemTable>& mem) -> FileMetaData*;
 
     std::string table_name_;
     Schema schema_;
 
-    BackgroundTask *bg_task_;
-
-
-    TableMetaData table_meta_data_;
-    TableCache *table_cache_;
-
+    DBMetaData *db_meta_data_;
 
     std::mutex mutex_;
     std::condition_variable cv_;
-
+    TableMetaData table_meta_data_;
     std::shared_ptr<MemTable> mem_;
-    std::shared_ptr<MemTable> imm_;
-    bool imm_compact_finished_ = false;
+    std::vector<std::shared_ptr<MemTable>> imm_;
+    bool is_compaction_running_{false};
+
+    std::queue<const WriteRequest*> write_queue_;
 };
 
 }; // namespace ljdb

@@ -1,30 +1,6 @@
-#include <memory>
-#include "db/meta_data.h"
-
+#include "db/file_meta_data.h"
 
 namespace ljdb {
-
-
-
-
-auto TableMetaData::TotalFileSize(int level) -> uint64_t {
-    uint64_t total_file_size = 0;
-    for(auto& file : files_[level]) {
-        total_file_size += file->GetFileSize();
-    }
-    return total_file_size;
-}
-
-void TableMetaData::GetOverlappingInputs(int level, const InternalKey *begin, const InternalKey *end,
-                                         std::vector<FileMetaData *> *inputs) {
-    for(auto file : files_[level]) {
-        if(file->GetSmallest() > *end && *begin > file->GetLargest()) {
-            continue;
-        }
-        inputs->push_back(file);
-    }
-
-}
 
 class FileMetaDataIterator : public Iterator {
 public:
@@ -67,4 +43,6 @@ auto NewFileMetaDataIterator(const std::vector<FileMetaData *> &files) -> std::u
     return std::make_unique<FileMetaDataIterator>(files);
 }
 
-}; // namespace ljdb
+
+
+} // namespace ljdb

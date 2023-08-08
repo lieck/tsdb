@@ -1,5 +1,5 @@
 #include "queue"
-#include "db/merger_iterator.h"
+#include "common/merger_iterator.h"
 
 #include <utility>
 
