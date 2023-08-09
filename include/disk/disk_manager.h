@@ -20,6 +20,8 @@ public:
 
     static void ReadBlock(std::ifstream& file, char* data, uint32_t size, uint32_t offset);
 
+    static void ReadBlock(file_number_t file_number, char* data, uint32_t size, uint32_t offset);
+
     static void WriteBlock(std::ofstream& file, const char* data, uint32_t size);
 
     static auto GetFileSize(std::ifstream& file) -> uint64_t;

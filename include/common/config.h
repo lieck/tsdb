@@ -22,8 +22,9 @@ static constexpr int K_L0_COMPACTION_TRIGGER = 4;
 
 
 
-using block_id_t = int64_t;
-using file_number_t = int32_t;
+using block_id_t = uint32_t;
+using file_number_t = uint32_t;
+using cache_id_t = uint64_t;
 
 
 }; // namespace ljdb

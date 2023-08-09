@@ -62,7 +62,10 @@ auto DiskManager::GetFileSize(std::ifstream &file) -> uint64_t {
     return file_size;
 }
 
-
+void DiskManager::ReadBlock(file_number_t file_number, char *data, uint32_t size, uint32_t offset) {
+    std::ifstream file = OpenSSTableFile(file_number);
+    ReadBlock(file, data, size, offset);
+}
 
 
 }; // namespace ljdb

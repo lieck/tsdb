@@ -7,6 +7,7 @@
 #include "sstable/sstable_builder.h"
 #include "db/background.h"
 #include "common/merger_iterator.h"
+#include "common/two_level_iterator.h"
 
 namespace ljdb {
 
@@ -32,12 +33,10 @@ auto Table::Upsert(const WriteRequest &wReq) -> int {
     for(auto &row : wReq.rows) {
         // 判断 mem 是否写满
         if(mem_->ApproximateSize() >= K_MEM_TABLE_SIZE_THRESHOLD) {
-
-            // 转换为 imm, 触发压缩
             imm_.push_back(mem_);
-            MaybeScheduleCompaction();
-
             mem_ = std::make_shared<MemTable>();
+
+            MaybeScheduleCompaction();
         }
 
         mem_->Insert(row);
@@ -104,13 +103,56 @@ auto Table::MemTableRangeQuery(Table::RangeQueryRequest &req, const std::shared_
 }
 
 auto Table::SSTableQuery(size_t level, Table::QueryRequest &req) -> void {
+
+
     // 搜索 L0
     if(level == 0) {
         // TODO 默认搜索全部 L0 文件, 但可以搜索指定的 L0 文件
-        auto l0_set = table_meta_data_.GetFileMetaData(0);
-        for(auto iter = l0_set.rbegin(); iter != l0_set.rend(); iter++) {
-
+        std::vector<FileMetaData*> l0_set = table_meta_data_.GetFileMetaData(0);
+        if(l0_set.empty()) {
+            return;
         }
+
+    }
+}
+
+
+auto Table::FileTableQuery(FileMetaData *fileMetaData, Table::QueryRequest &req) -> void {
+    auto iter = table_cache_->NewTableIterator(fileMetaData->file_number_);
+    for(const auto& r : req.vin_) {
+        iter->Seek(InternalKey(r, MAX_TIMESTAMP));
+        if(iter->Valid()) {
+            auto key = iter->GetKey();
+            if(key.vin_ == r) {
+                Row row = CodingUtil::DecodeRow(iter->GetValue().data(), schema_, req.columns_);
+                row.vin = key.vin_;
+                row.timestamp = key.timestamp_;
+                req.result_->push_back(row);
+            }
+            iter->Next();
+        }
+    }
+}
+
+void Table::FileTableRangeQuery(FileMetaData *fileMetaData, Table::RangeQueryRequest &req) {
+    auto iter = table_cache_->NewTableIterator(fileMetaData->file_number_);
+    iter->Seek(InternalKey(*req.vin_, req.time_upper_bound_));
+    while(iter->Valid()) {
+        auto key = iter->GetKey();
+        if(key.vin_ != *req.vin_ || key.timestamp_ < req.time_lower_bound_) {
+            break;
+        }
+
+        if(req.time_set_.count(key.timestamp_) == 0) {
+            req.time_set_.insert(key.timestamp_);
+
+            Row row = CodingUtil::DecodeRow(iter->GetValue().data(), schema_, req.columns_);
+            row.vin = key.vin_;
+            row.timestamp = key.timestamp_;
+            req.result_->push_back(row);
+        }
+
+        iter->Next();
     }
 }
 
@@ -133,7 +175,6 @@ void Table::BackgroundCall() {
 }
 
 auto Table::BackgroundCompaction(std::unique_lock<std::mutex> &lock) -> void {
-
     // 若有正在进行的压缩任务, 则等待
     while(is_compaction_running_) {
         lock.unlock();
@@ -179,10 +220,19 @@ auto Table::BackgroundCompaction(std::unique_lock<std::mutex> &lock) -> void {
         table_meta_data_.RemoveFileMetaData(task->level_, task->input_files_[0]);
         table_meta_data_.RemoveFileMetaData(task->level_ + 1, task->input_files_[1]);
         table_meta_data_.AddFileMetaData(task->level_ + 1, task->output_files_);
+
+        if(task->type_ == CompactionType::SeekCompaction) {
+            table_meta_data_.ClearSeekCompaction();
+        }
     }
 }
 
 auto Table::DoManualCompaction(CompactionTask *task) -> bool {
+    if(task->input_files_[1].empty()) {
+        task->output_files_ = task->input_files_[1];
+        return true;
+    }
+
     std::vector<std::unique_ptr<Iterator>> input_iters(2);
 
     // 生成迭代器
@@ -213,7 +263,8 @@ auto Table::DoManualCompaction(CompactionTask *task) -> bool {
     while(input_iter->Valid()) {
         if(builder == nullptr || builder->EstimatedSize() >= MAX_FILE_SIZE) {
             if(builder != nullptr) {
-                builder->Builder();
+                // TODO 将 SSTable 放入 TableCaz
+                auto sstable = builder->Builder();
 
                 file_meta_data->largest_ = largest;
                 file_meta_data->file_size_ = builder->EstimatedSize();
@@ -267,10 +318,13 @@ auto Table::CompactMemTable(const std::shared_ptr<MemTable> &mem) -> FileMetaDat
     }
 
     auto sstable = builder.Builder();
+    table_cache_->AddSSTable(std::move(sstable));
 
     auto file_meta_data = new FileMetaData(file_number, start_key, end_key);
     return file_meta_data;
 }
+
+
 
 
 } // namespace ljdb

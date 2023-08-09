@@ -45,10 +45,8 @@ void TableMetaData::Finalize() {
         }
     }
 
-    if(size_compaction_score_ < best_score) {
-        size_compaction_level_ = best_level;
-        size_compaction_score_ = best_score;
-    }
+    size_compaction_level_ = best_level;
+    size_compaction_score_ = best_score;
 }
 
 void TableMetaData::SeekCompaction(int level, FileMetaData *meta_data) {
@@ -72,6 +70,7 @@ auto TableMetaData::GenerateCompactionTask() -> CompactionTask* {
     size_t start_idx = 0;
     if(size_compaction) {
         task->level_ = size_compaction_level_;
+        task->type_ = CompactionType::SizeCompaction;
 
         for(size_t i = 0; i < files.size(); i++) {
             if(files[i]->GetSmallest() > size_compaction_pointer_[size_compaction_level_]) {
@@ -81,6 +80,7 @@ auto TableMetaData::GenerateCompactionTask() -> CompactionTask* {
         }
     } else if(seek_compaction) {
         task->level_ = seek_compaction_level_;
+        task->type_ = CompactionType::SeekCompaction;
 
         for(size_t i = 0; i < files.size(); i++) {
             if(files[i]->GetFileNumber() == seek_compaction_file_->GetFileNumber()) {
@@ -129,6 +129,11 @@ void TableMetaData::RemoveFileMetaData(int32_t level, const std::vector<FileMeta
             files_[level].erase(it);
         }
     }
+}
+
+void TableMetaData::ClearSeekCompaction() {
+    seek_compaction_level_ = -1;
+    seek_compaction_file_ = nullptr;
 }
 
 

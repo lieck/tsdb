@@ -88,6 +88,24 @@ public:
 
         return std::move(row);
     }
+
+
+    static auto DecodeFixed64(const char* data) -> uint64_t {
+        uint64_t value = 0;
+        for(size_t i = 0; i < 8; i++) {
+            value <<= 8;
+            value += static_cast<uint8_t>(data[i]);
+        }
+        return value;
+    }
+
+    static auto EncodeFixed64(std::string* dst, uint64_t value) -> void {
+        for(size_t i = 0; i < 8; i++) {
+            dst->push_back(static_cast<char>(value & 0xff));
+            value >>= 8;
+        }
+    }
+
 };
 
 } // namespace ljdb

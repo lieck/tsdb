@@ -13,7 +13,7 @@
 namespace ljdb {
 
 // block format:
-// entry : |key size| key data | data size | value data|
+// entry : | key | value length | value data|
 //
 // Block : | entry  | entry    | ... | entry |      | entry offset array | num entries|
 class BlockBuilder {

@@ -15,6 +15,26 @@
 
 namespace ljdb {
 
+enum CompactionType { SizeCompaction, SeekCompaction };
+
+struct CompactionTask {
+    // 压缩的目标层数
+    int level_;
+
+    // 压缩类型
+    CompactionType type_;
+
+    // 输出文件的最大大小
+    uint64_t max_output_file_size_;
+
+    // 压缩的输入文件
+    std::vector<FileMetaData*> input_files_[2];
+
+    // 压缩的输出文件
+    std::vector<FileMetaData*> output_files_;
+};
+
+
 class Table {
 private:
     struct RangeQueryRequest {
@@ -61,13 +81,20 @@ public:
     auto ExecuteTimeRangeQuery(const TimeRangeQueryRequest &trReadReq, std::vector<Row> &trReadRes) -> int;
 
 private:
-    auto MemTableQuery(QueryRequest &req, const std::shared_ptr<MemTable>& mem) -> void;
+    // 查询 memtable 内复合条件的元素
+    auto MemTableQuery(QueryRequest &req, const std::shared_ptr<MemTable>& memtable) -> void;
 
-    auto MemTableRangeQuery(Table::RangeQueryRequest &req, const std::shared_ptr<MemTable>& mem) -> void;
+    // 查询 memtable 内符合时间范围的元素
+    auto MemTableRangeQuery(Table::RangeQueryRequest &req, const std::shared_ptr<MemTable>& memtable) -> void;
 
+    // 查询 SSTable 内符合条件的元素
     auto SSTableQuery(size_t level, QueryRequest &req) -> void;
 
     auto SSTableRangeQuery(size_t level, const TimeRangeQueryRequest &trReadReq, std::vector<Row> &trReadRes) -> void;
+
+    auto FileTableQuery(FileMetaData *fileMetaData, QueryRequest &req) -> void;
+
+    void FileTableRangeQuery(FileMetaData *fileMetaData, Table::RangeQueryRequest &req);
 
     // 后台线程任务
     static void BGWork(void* table);
@@ -90,14 +117,16 @@ private:
 
     DBMetaData *db_meta_data_;
 
+    TableCache *table_cache_;
+
+    // 下述是需要锁保护的变量
     std::mutex mutex_;
     std::condition_variable cv_;
     TableMetaData table_meta_data_;
     std::shared_ptr<MemTable> mem_;
     std::vector<std::shared_ptr<MemTable>> imm_;
-    bool is_compaction_running_{false};
-
-    std::queue<const WriteRequest*> write_queue_;
+    bool is_compaction_running_{false}; // 是否正在压缩
+    std::queue<const WriteRequest*> write_queue_;   // 写请求队列
 };
 
 }; // namespace ljdb

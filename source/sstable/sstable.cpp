@@ -6,114 +6,47 @@
 #include "util/coding.h"
 #include "common/macros.h"
 #include "disk/disk_manager.h"
+#include "common/two_level_iterator.h"
 
 namespace ljdb {
 
-auto SSTable::ReadBlock(uint32_t block_idx) -> std::unique_ptr<Block> {
-    ASSERT(block_idx < block_metas_.size(), "block index out of range");
 
-    auto begin_offset = block_metas_[block_idx].offset_;
-    auto end_offset = block_idx + 1 != block_metas_.size() ? block_metas_[block_idx + 1].offset_ : meta_block_offset_;
-    auto size = end_offset - begin_offset;
+SSTable::SSTable(file_number_t file_number, uint64_t file_size) : file_number_(file_number), file_size_(file_size) {
+    // read sstable footer
+    char footer_buffer[SSTABLE_FOOTER_LENGTH];
+    auto footer_offset = file_size_ - SSTABLE_FOOTER_LENGTH;
+    DiskManager::ReadBlock(file_number_, footer_buffer, SSTABLE_FOOTER_LENGTH, footer_offset);
 
-    char *data = new char[size];
-    DiskManager::ReadBlock(file_, data, size, begin_offset);
+    // read sstable index block
+    auto index_offset = CodingUtil::DecodeUint32(footer_buffer);
+    auto index_block_size = footer_offset - index_offset;
 
-    return std::make_unique<Block>(data, size);
-}
+    char *index_buffer = new char[index_block_size];
+    DiskManager::ReadBlock(file_number_, index_buffer, index_block_size, index_offset);
 
-auto SSTable::FindBlockIdx(const InternalKey &key) -> uint32_t {
-    auto cmp = [](BlockMeta &meta, const InternalKey &b) -> bool {
-        return InternalKey(meta.first_key_) < b;
-    };
-
-    uint32_t idx = std::lower_bound(block_metas_.begin(), block_metas_.end(), key, cmp) - block_metas_.begin();
-    return idx;
-}
-
-auto SSTable::ReadMetaBlock() -> void {
-    // read meta block offset
-    char buf[CodingUtil::LENGTH_SIZE];
-
-    auto offset = DiskManager::GetFileSize(file_) - CodingUtil::LENGTH_SIZE;
-    DiskManager::ReadBlock(file_, buf, CodingUtil::LENGTH_SIZE, offset);
-    auto curr_offset = CodingUtil::DecodeUint32(buf);
-    meta_block_offset_ = curr_offset;
-
-    auto meta_block_size = offset - curr_offset;
-    char *meta_block = new char[meta_block_size];
-    DiskManager::ReadBlock(file_, meta_block, meta_block_size, curr_offset);
-
-    Block block(meta_block, meta_block_size);
-    block_metas_.reserve(block.GetEntrySize());
-
-    for(auto iter = block.NewIterator(); iter->Valid(); iter->Next()) {
-        InternalKey key = iter->GetKey();
-        auto value = iter->GetValue();
-        auto block_offset = CodingUtil::DecodeUint32(value.data());
-
-        block_metas_.emplace_back(block_offset, key.Encode());
-    }
+    index_block_ = new Block(index_buffer, index_block_size);
 }
 
 auto SSTable::NewIterator() -> std::unique_ptr<Iterator> {
-    return std::make_unique<SSTableIterator>(this);
+    auto index_iterator = index_block_->NewIterator();
+    return NewTwoLevelIterator(std::move(index_iterator), ReadBlock, this);
 }
 
+auto SSTable::ReadBlock(void *arg, const std::string &key) -> std::unique_ptr<Iterator> {
+    auto *sstable = reinterpret_cast<SSTable *>(arg);
+    BlockHeader block_header(key);
 
-SSTable::SSTableIterator::SSTableIterator(SSTable *sstable) : sstable_(sstable) {
-    if(sstable_->GetBlockNum() == 0) {
-        return;
-    }
-    block_idx_ = 0;
-    block_ = sstable->ReadBlock(block_idx_);
-    block_iter_ = block_->NewIterator();
+    // TODO 使用 Cache 读取
+    char *block_buffer = new char[block_header.size_];
+    DiskManager::ReadBlock(sstable->file_number_, block_buffer, block_header.size_, block_header.offset_);
+    auto block = new Block(block_buffer, block_header.size_);
+
+    return block->NewIterator();
 }
 
-SSTable::SSTableIterator::SSTableIterator(SSTable *sstable, const InternalKey &key) : sstable_(sstable) {
-    block_idx_ = sstable->FindBlockIdx(key);
-    block_ = sstable->ReadBlock(block_idx_);
-    block_iter_ = block_->NewIterator();
-    block_iter_->Seek(key);
-    if(!block_iter_->Valid()) {
-        block_idx_++;
-    }
+auto SSTable::GetBlockCacheID(block_id_t block_id) -> cache_id_t {
+    return static_cast<cache_id_t>(file_number_) << 32 | block_id;
 }
 
-auto SSTable::SSTableIterator::GetKey() -> InternalKey {
-    return block_iter_->GetKey();
-}
-
-auto SSTable::SSTableIterator::GetValue() -> std::string {
-    return block_iter_->GetValue();
-}
-
-void SSTable::SSTableIterator::Next()  {
-    block_iter_->Next();
-    if(!block_iter_->Valid()) {
-        ++block_idx_;
-
-        if(Valid()) {
-            block_ = sstable_->ReadBlock(block_idx_);
-            block_iter_ = block_->NewIterator();
-        }
-    }
-}
-
-void SSTable::SSTableIterator::SeekToFirst() {
-    block_idx_ = 0;
-    block_ = sstable_->ReadBlock(block_idx_);
-    block_iter_ = block_->NewIterator();
-}
-
-void SSTable::SSTableIterator::Seek(const InternalKey &key) {
-    block_idx_ = sstable_->FindBlockIdx(key);
-    block_ = sstable_->ReadBlock(block_idx_);
-    block_iter_ = block_->NewIterator();
-    block_iter_->Seek(key);
-    if(!block_iter_->Valid()) {
-        block_idx_++;
-    }
-}
 
 }  // namespace ljdb

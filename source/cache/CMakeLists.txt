@@ -1,6 +1,7 @@
 add_library(
         ljdb_cache
         OBJECT
+        cache.cpp
         table_cache.cpp
 )
 

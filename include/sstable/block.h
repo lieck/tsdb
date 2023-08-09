@@ -12,6 +12,23 @@
 
 namespace ljdb {
 
+struct BlockHeader {
+    uint64_t offset_;
+    uint64_t size_;
+
+    BlockHeader(uint64_t offset, uint64_t size) : offset_(offset), size_(size) {}
+
+    explicit BlockHeader(const std::string_view &data) {
+        offset_ = CodingUtil::DecodeFixed64(data.data());
+        size_ = CodingUtil::DecodeFixed64(data.data() + 8);
+    }
+
+    auto EncodeToString(std::string *dst) const -> void {
+        CodingUtil::EncodeFixed64(dst, offset_);
+        CodingUtil::EncodeFixed64(dst + 8, size_);
+    }
+};
+
 struct BlockMeta {
     uint32_t offset_;
     std::string first_key_;

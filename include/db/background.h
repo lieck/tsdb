@@ -9,11 +9,11 @@ namespace ljdb {
 class BackgroundTask {
 private:
     struct BackgroundTaskItem {
-        void (*const function)(void*);
-        void* const arg;
+        void (*const function_)(void*);
+        void* const arg_;
 
         explicit BackgroundTaskItem(void (*function)(void* arg), void* arg)
-                : function(function), arg(arg) {}
+                : function_(function), arg_(arg) {}
     };
 
 public:

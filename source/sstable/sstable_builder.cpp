@@ -46,18 +46,15 @@ auto SStableBuilder::FlushBlock() -> void {
 auto SStableBuilder::Builder() -> std::unique_ptr<SSTable> {
     FlushBlock();
 
-    auto meta_block_offset = offset_;
-
     char coding_offset[4];
-
-    // calculate meta block size
+    // calculate index block size
     uint32_t size = block_meta_.size() * BlockBuilder::ENTRY_LENGTH_SIZE + 100;
     for(auto &meta : block_meta_) {
         size += CodingUtil::LENGTH_SIZE;
         size += meta.first_key_.size();
     }
 
-    // write meta block
+    // write index block
     BlockBuilder builder(size);
     builder.Init();
     for(auto &meta : block_meta_) {
@@ -66,8 +63,8 @@ auto SStableBuilder::Builder() -> std::unique_ptr<SSTable> {
             throw Exception("SStableBuilder failed to add");
         }
     }
-    auto meta_block = builder.Builder();
-    DiskManager::WriteBlock(file_, meta_block->GetData(), meta_block->GetDataSize());
+    auto index_block = builder.Builder();
+    DiskManager::WriteBlock(file_, index_block->GetData(), index_block->GetDataSize());
 
     // write meta block offset
     CodingUtil::PutUint32(coding_offset, offset_);
@@ -76,7 +73,8 @@ auto SStableBuilder::Builder() -> std::unique_ptr<SSTable> {
     file_.flush();
     file_.close();
 
-    return std::make_unique<SSTable>(file_number_, std::move(block_meta_), meta_block_offset);
+    // TODO offset_ 是否正确？
+    return std::make_unique<SSTable>(file_number_, offset_, index_block);
 }
 
 }  // namespace ljdb

@@ -6,26 +6,19 @@
 #include <fstream>
 
 #include "sstable/block.h"
-#include "buffer/buffer_pool_manager.h"
 #include "disk/disk_manager.h"
 #include "common/macros.h"
 
 namespace ljdb {
 
+const constexpr size_t SSTABLE_FOOTER_LENGTH = CodingUtil::LENGTH_SIZE;
+
 class SSTable {
-private:
-    class SSTableIterator;
-
 public:
-    explicit SSTable(file_number_t file_number) : file_number_(file_number) {
-        file_ = DiskManager::OpenSSTableFile(file_number);
-        ReadMetaBlock();
-    }
+    SSTable(file_number_t file_number, uint64_t file_size);
 
-    explicit SSTable(file_number_t file_number, std::vector<BlockMeta> &&block_metas, uint64_t meta_block_offset)
-        : block_metas_(std::move(block_metas)), meta_block_offset_(meta_block_offset), file_number_(file_number) {
-        file_ = DiskManager::OpenSSTableFile(file_number);
-    }
+    SSTable(file_number_t file_number, uint64_t file_size, Block* index_block)
+        : file_number_(file_number), file_size_(file_size), index_block_(index_block) {}
 
     DISALLOW_COPY_AND_MOVE(SSTable);
 
@@ -33,62 +26,19 @@ public:
 
     auto GetFileNumber() const -> file_number_t { return file_number_; }
 
-    // get the number of blocks
-    auto GetBlockNum() const -> uint32_t { return block_metas_.size(); }
+    auto GetFileSize() const -> uint64_t { return file_size_; }
+
+    static auto ReadBlock(void* arg, const std::string &key) -> std::unique_ptr<Iterator>;
+
+    auto GetBlockCacheID(block_id_t block_id) -> cache_id_t;
 
 private:
-    // read the meta block from the file
-    auto ReadMetaBlock() -> void;
+    file_number_t file_number_; // sstable 编号
+    uint64_t file_size_; // sstable 大小
 
-    // read the block from the file
-    auto ReadBlock(uint32_t block_idx) -> std::unique_ptr<Block>;
-
-    // find the block index of the key
-    auto FindBlockIdx(const InternalKey &key) -> uint32_t;
-
-    // the file of the sstable
-    std::ifstream file_;
-
-    file_number_t file_number_;
-
-    std::vector<BlockMeta> block_metas_;
-
-    uint64_t meta_block_offset_{0};
+    // index block
+    Block* index_block_{nullptr};
 };
-
-
-// SSTableIterator 的生命周期依赖于 SSTable
-// 不应该在 SSTable 释放后保留 SSTableIterator
-class SSTable::SSTableIterator : public Iterator {
-public:
-    explicit SSTableIterator(SSTable *sstable);
-
-    explicit SSTableIterator(SSTable *sstable, const InternalKey &key);
-
-    ~SSTableIterator() override = default;
-
-    DISALLOW_COPY_AND_MOVE(SSTableIterator);
-
-    auto GetKey() -> InternalKey override;
-
-    auto GetValue() -> std::string override;
-
-    auto Valid() -> bool override { return sstable_ != nullptr && block_idx_ < sstable_->GetBlockNum(); }
-
-    void Next() override;
-
-    void SeekToFirst() override;
-
-    void Seek(const InternalKey &key) override;
-
-private:
-    SSTable *sstable_{nullptr};
-    std::unique_ptr<Block> block_{nullptr};
-    uint32_t block_idx_{0};
-    std::unique_ptr<Iterator> block_iter_{};
-};
-
-
 
 }  // namespace ljdb
 

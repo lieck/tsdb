@@ -51,7 +51,7 @@ public:
 
     // 是否存在压缩计划
     auto ExistCompactionTask() -> bool {
-        return size_compaction_level_ != -1 || seek_compaction_level_ != -1;
+        return size_compaction_score_ >= 1 || seek_compaction_level_ != -1;
     }
 
     // 确定下一次 Size Compaction 计划
@@ -61,6 +61,8 @@ public:
     // Seek Compaction 计划
     // 需要获取 TableMetaData 的锁
     void SeekCompaction(int level, FileMetaData *meta_data);
+
+    void ClearSeekCompaction();
 
     // 生成压缩计划
     auto GenerateCompactionTask() -> CompactionTask*;
