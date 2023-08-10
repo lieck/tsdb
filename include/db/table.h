@@ -4,6 +4,7 @@
 #include <mutex>
 #include <condition_variable>
 #include <shared_mutex>
+#include <utility>
 #include "common/macros.h"
 #include "TSDBEngine.hpp"
 #include "mem_table/mem_table.h"
@@ -14,26 +15,6 @@
 #include "compaction.h"
 
 namespace ljdb {
-
-enum CompactionType { SizeCompaction, SeekCompaction };
-
-struct CompactionTask {
-    // 压缩的目标层数
-    int level_;
-
-    // 压缩类型
-    CompactionType type_;
-
-    // 输出文件的最大大小
-    uint64_t max_output_file_size_;
-
-    // 压缩的输入文件
-    std::vector<FileMetaData*> input_files_[2];
-
-    // 压缩的输出文件
-    std::vector<FileMetaData*> output_files_;
-};
-
 
 class Table {
 private:
@@ -55,11 +36,11 @@ private:
 
     struct QueryRequest {
         std::set<Vin> vin_;
-        std::set<std::string> *columns_;
+        std::set<std::string> columns_;
         std::vector<Row> *result_;
 
-        QueryRequest(std::vector<Vin> &vins, std::set<std::string> *columns, std::vector<Row> *result)
-         : columns_(columns), result_(result) {
+        QueryRequest(const std::vector<Vin> &vins, std::set<std::string> columns, std::vector<Row> *result)
+         : columns_(std::move(columns)), result_(result) {
             for(auto &vin : vins) {
                 vin_.insert(vin);
             }
@@ -67,14 +48,12 @@ private:
     };
 
 public:
-    explicit Table(std::string &tableName, const Schema &schema, BackgroundTask *bgTask);
-    ~Table();
+    explicit Table(std::string &tableName, Schema schema, DBMetaData *dbMetaData, TableCache *tableCache);
+    ~Table() = default;
 
     DISALLOW_COPY_AND_MOVE(Table);
 
     auto Upsert(const WriteRequest &wReq) -> int;
-
-    auto Get(Vin vin, std::set<std::string> &columns, Row &row) -> bool;
 
     auto ExecuteLatestQuery(const LatestQueryRequest &pReadReq, std::vector<Row> &pReadRes) -> int;
 
@@ -86,11 +65,6 @@ private:
 
     // 查询 memtable 内符合时间范围的元素
     auto MemTableRangeQuery(Table::RangeQueryRequest &req, const std::shared_ptr<MemTable>& memtable) -> void;
-
-    // 查询 SSTable 内符合条件的元素
-    auto SSTableQuery(size_t level, QueryRequest &req) -> void;
-
-    auto SSTableRangeQuery(size_t level, const TimeRangeQueryRequest &trReadReq, std::vector<Row> &trReadRes) -> void;
 
     auto FileTableQuery(FileMetaData *fileMetaData, QueryRequest &req) -> void;
 
@@ -114,7 +88,6 @@ private:
 
     std::string table_name_;
     Schema schema_;
-
     DBMetaData *db_meta_data_;
 
     TableCache *table_cache_;
@@ -129,4 +102,4 @@ private:
     std::queue<const WriteRequest*> write_queue_;   // 写请求队列
 };
 
-}; // namespace ljdb
+} // namespace ljdb

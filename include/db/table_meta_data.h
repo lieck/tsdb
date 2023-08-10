@@ -12,7 +12,6 @@
 #include "mem_table/mem_table.h"
 #include "db_meta_data.h"
 #include "compaction.h"
-#include "file_meta_data.h"
 
 
 namespace ljdb {
@@ -27,9 +26,28 @@ static auto MaxBytesForLevel(int level) -> double {
     return result;
 }
 
+enum CompactionType { SizeCompaction, SeekCompaction };
+
+struct CompactionTask {
+    // 压缩的目标层数
+    int level_;
+
+    // 压缩类型
+    CompactionType type_;
+
+    // 输出文件的最大大小
+    uint64_t max_output_file_size_;
+
+    // 压缩的输入文件
+    std::vector<FileMetaData*> input_files_[2];
+
+    // 压缩的输出文件
+    std::vector<FileMetaData*> output_files_;
+};
+
 class TableMetaData {
 public:
-    auto GetFileMetaData(int32_t level) const -> const std::vector<FileMetaData*>& {
+    auto GetFileMetaData(size_t level) const -> const std::vector<FileMetaData*>& {
         return files_[level];
     }
 

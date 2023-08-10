@@ -2,25 +2,19 @@
 
 #include <memory>
 #include "common/config.h"
-#include "format.h"
 #include "common/iterator.h"
 #include "cache/table_cache.h"
 
 namespace ljdb {
 
 
-
-
 class FileMetaData {
 public:
-    explicit FileMetaData() {}
+    explicit FileMetaData() = default;
 
-    explicit FileMetaData(file_number_t file_number, InternalKey smallest, InternalKey largest)
-            : file_number_(file_number), smallest_(std::move(smallest)), largest_(std::move(largest)) {}
+    explicit FileMetaData(file_number_t file_number, InternalKey smallest, InternalKey largest, uint64_t file_size);
 
     explicit FileMetaData(const std::string &src);
-
-    void DecodeFrom(const std::string& src);
 
     void EncodeTo(std::string* dst) const;
 
@@ -36,14 +30,14 @@ public:
         return smallest_ < rhs.smallest_;
     }
 
-    file_number_t file_number_;
+    file_number_t file_number_{};
 
-    uint64_t file_size_;
+    uint64_t file_size_{};
 
     InternalKey smallest_;
     InternalKey largest_;
 
-    uint32_t allowed_seeks_;
+    uint32_t allowed_seeks_{};
 };
 
 

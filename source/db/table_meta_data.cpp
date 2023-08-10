@@ -27,12 +27,9 @@ void TableMetaData::GetOverlappingInputs(int level, const InternalKey *begin, co
 }
 
 void TableMetaData::Finalize() {
-    int best_level = -1;
-    double best_score = -1;
-
     // l0 compaction
-    best_level = 0;
-    best_score = static_cast<double>(GetFileMetaData(0).size()) /
+    int best_level = 0;
+    double best_score = static_cast<double>(GetFileMetaData(0).size()) /
                  static_cast<double>(K_L0_COMPACTION_TRIGGER);
 
     // l1 ~ l6 compaction
@@ -137,4 +134,4 @@ void TableMetaData::ClearSeekCompaction() {
 }
 
 
-}; // namespace ljdb
+} // namespace ljdb

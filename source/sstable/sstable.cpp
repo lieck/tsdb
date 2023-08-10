@@ -1,6 +1,5 @@
 
 #include <algorithm>
-#include <cstring>
 
 #include "sstable/sstable.h"
 #include "util/coding.h"

@@ -1,9 +1,9 @@
 
 #include <fstream>
+#include <utility>
 #include "db/table.h"
 #include "util/coding.h"
 #include "common/config.h"
-#include "disk/disk_manager.h"
 #include "sstable/sstable_builder.h"
 #include "db/background.h"
 #include "common/merger_iterator.h"
@@ -11,13 +11,10 @@
 
 namespace ljdb {
 
+Table::Table(std::string &tableName, Schema schema, DBMetaData *dbMetaData, TableCache *tableCache) :
+table_name_(tableName), schema_(std::move(schema)), db_meta_data_(dbMetaData), table_cache_(tableCache) {
 
-
-
-Table::Table(std::string &tableName, const Schema &schema, BackgroundTask *bgTask) : table_name_(tableName), schema_(schema), bg_task_(bgTask) {
 }
-
-
 
 auto Table::Upsert(const WriteRequest &wReq) -> int {
     std::unique_lock<std::mutex> lock(mutex_);
@@ -46,6 +43,33 @@ auto Table::Upsert(const WriteRequest &wReq) -> int {
 }
 
 auto Table::ExecuteLatestQuery(const LatestQueryRequest &pReadReq, std::vector<Row> &pReadRes) -> int {
+    auto query = QueryRequest(pReadReq.vins, pReadReq.requestedColumns, &pReadRes);
+
+    std::unique_lock<std::mutex> lock(mutex_);
+    std::vector<std::shared_ptr<MemTable>> mem_table;
+    mem_table.push_back(mem_);
+    for(auto iter = imm_.rbegin(); iter != imm_.rend(); ++iter) {
+        mem_table.push_back(mem_);
+    }
+
+    std::vector<FileMetaData*> sstable[K_NUM_LEVELS];
+    for(int i = 0; i < K_NUM_LEVELS; ++i) {
+        sstable[i] = table_meta_data_.GetFileMetaData(i);
+    }
+    lock.unlock();
+
+    // 搜索 l0
+    for(auto &mem : mem_table) {
+        MemTableQuery(query, mem);
+    }
+
+    // 搜索 sstable
+    for(auto & i : sstable) {
+        for(auto f : i) {
+            FileTableQuery(f, query);
+        }
+    }
+
 
     return 0;
 }
@@ -54,10 +78,33 @@ auto Table::ExecuteTimeRangeQuery(const TimeRangeQueryRequest &trReadReq, std::v
     auto query = RangeQueryRequest(&trReadReq.vin, trReadReq.timeLowerBound, trReadReq.timeUpperBound,
                                    &trReadReq.requestedColumns, &trReadRes);
 
+    std::unique_lock<std::mutex> lock(mutex_);
+    std::vector<std::shared_ptr<MemTable>> mem_table;
+    mem_table.push_back(mem_);
+    for(auto iter = imm_.rbegin(); iter != imm_.rend(); ++iter) {
+        mem_table.push_back(mem_);
+    }
+
+    std::vector<FileMetaData*> sstable[K_NUM_LEVELS];
+    for(int i = 0; i < K_NUM_LEVELS; ++i) {
+        sstable[i] = table_meta_data_.GetFileMetaData(i);
+    }
+    lock.unlock();
+
+    // 搜索 l0
+    for(auto &mem : mem_table) {
+        MemTableRangeQuery(query, mem);
+    }
+
+    // 搜索 sstable
+    for(auto & i : sstable) {
+        for(auto f : i) {
+            FileTableRangeQuery(f, query);
+        }
+    }
 
     return 0;
 }
-
 
 auto Table::MemTableQuery(Table::QueryRequest &req, const std::shared_ptr<MemTable>& mem) -> void {
     auto vin_iter = req.vin_.begin();
@@ -66,7 +113,7 @@ auto Table::MemTableQuery(Table::QueryRequest &req, const std::shared_ptr<MemTab
 
     while(iter->Valid() && vin_iter != req.vin_.end()) {
         if(iter->GetKey().vin_ == *vin_iter) {
-            Row row = CodingUtil::DecodeRow(iter->GetValue().data(), schema_, req.columns_);
+            Row row = CodingUtil::DecodeRow(iter->GetValue().data(), schema_, &req.columns_);
             row.vin = iter->GetKey().vin_;
             row.timestamp = iter->GetKey().timestamp_;
             req.result_->push_back(row);
@@ -102,28 +149,23 @@ auto Table::MemTableRangeQuery(Table::RangeQueryRequest &req, const std::shared_
     }
 }
 
-auto Table::SSTableQuery(size_t level, Table::QueryRequest &req) -> void {
-
-    // 搜索 L0
-    if(level == 0) {
-        // TODO 默认搜索全部 L0 文件, 但可以搜索指定的 L0 文件
-        std::vector<FileMetaData*> l0_set = table_meta_data_.GetFileMetaData(0);
-        if(l0_set.empty()) {
-            return;
-        }
-
-    }
-}
-
-
 auto Table::FileTableQuery(FileMetaData *fileMetaData, Table::QueryRequest &req) -> void {
+    if(req.vin_.empty()) {
+        return;
+    }
+
     auto iter = table_cache_->NewTableIterator(fileMetaData);
     for(const auto& r : req.vin_) {
-        iter->Seek(InternalKey(r, MAX_TIMESTAMP));
+        InternalKey internal_key(r, MAX_TIMESTAMP);
+        if(internal_key < fileMetaData->smallest_ || internal_key > fileMetaData->largest_) {
+            continue;
+        }
+
+        iter->Seek(internal_key);
         if(iter->Valid()) {
             auto key = iter->GetKey();
             if(key.vin_ == r) {
-                Row row = CodingUtil::DecodeRow(iter->GetValue().data(), schema_, req.columns_);
+                Row row = CodingUtil::DecodeRow(iter->GetValue().data(), schema_, &req.columns_);
                 row.vin = key.vin_;
                 row.timestamp = key.timestamp_;
                 req.result_->push_back(row);
@@ -134,8 +176,13 @@ auto Table::FileTableQuery(FileMetaData *fileMetaData, Table::QueryRequest &req)
 }
 
 void Table::FileTableRangeQuery(FileMetaData *fileMetaData, Table::RangeQueryRequest &req) {
+    InternalKey internal_key(*req.vin_, req.time_upper_bound_);
+    if(fileMetaData->smallest_ > internal_key || fileMetaData->largest_ < internal_key) {
+        return;
+    }
+
     auto iter = table_cache_->NewTableIterator(fileMetaData);
-    iter->Seek(InternalKey(*req.vin_, req.time_upper_bound_));
+    iter->Seek(internal_key);
     while(iter->Valid()) {
         auto key = iter->GetKey();
         if(key.vin_ != *req.vin_ || key.timestamp_ < req.time_lower_bound_) {
@@ -319,7 +366,8 @@ auto Table::CompactMemTable(const std::shared_ptr<MemTable> &mem) -> FileMetaDat
     auto sstable = builder.Builder();
     table_cache_->AddSSTable(std::move(sstable));
 
-    auto file_meta_data = new FileMetaData(file_number, start_key, end_key);
+
+    auto file_meta_data = new FileMetaData(file_number, start_key, end_key, sstable->GetFileSize());
     return file_meta_data;
 }
 

@@ -1,6 +1,5 @@
 #include "cache/table_cache.h"
 #include "cache/cache.h"
-#include "db/file_meta_data.h"
 
 namespace ljdb {
 
