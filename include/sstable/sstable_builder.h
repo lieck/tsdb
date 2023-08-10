@@ -13,6 +13,34 @@
 
 namespace ljdb {
 
+static constexpr uint32_t BLOCK_HEADER_SIZE = 16;
+
+struct BlockHeader {
+    uint64_t offset_;
+    uint64_t size_;
+
+    BlockHeader(uint64_t offset, uint64_t size) : offset_(offset), size_(size) {}
+
+    explicit BlockHeader(const std::string_view &data) {
+        offset_ = CodingUtil::DecodeFixed64(data.data());
+        size_ = CodingUtil::DecodeFixed64(data.data() + CodingUtil::FIXED_64_SIZE);
+    }
+
+    auto EncodeTo(char *dst) const -> void {
+        CodingUtil::EncodeValue(dst, offset_);
+        CodingUtil::EncodeValue(dst + CodingUtil::FIXED_64_SIZE, size_);
+    }
+};
+
+struct BlockMeta {
+    uint32_t offset_;
+    uint64_t size_;
+    InternalKey first_key_;
+
+    BlockMeta(uint32_t offset_, uint64_t size, InternalKey first_key)
+            : offset_(offset_), size_(size), first_key_(std::move(first_key)) {}
+};
+
 class SStableBuilder {
 public:
     explicit SStableBuilder(file_number_t file_number, uint32_t block_size = SSTABLE_BLOCK_CAPACITY)
@@ -32,7 +60,9 @@ private:
     file_number_t file_number_;
 
     std::ofstream file_;
-    BlockBuilder block_builder_;
+
+    BlockBuilder block_builder_;    // 用于构建 block
+    InternalKey first_key_;         // 当前构建 block 的第一个 key
 
     std::vector<BlockMeta> block_meta_{};
 

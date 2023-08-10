@@ -15,6 +15,21 @@ class CodingUtil {
 public:
     static constexpr uint32_t LENGTH_SIZE = 4;
 
+    static constexpr uint32_t FIXED_32_SIZE = 4;
+    static constexpr uint32_t FIXED_64_SIZE = 8;
+
+
+    template<class T>
+    static auto EncodeValue(char *data, T value) -> void {
+        auto *p = reinterpret_cast<T *>(data);
+        *p = value;
+    }
+
+    static auto DecodeFixed64(const char *data) -> uint64_t {
+        return *reinterpret_cast<const uint64_t *>(data);
+    }
+
+
 
     static auto PutUint32(char* data, uint32_t value) -> void {
         auto *p = reinterpret_cast<uint32_t*>(data);
@@ -87,23 +102,6 @@ public:
         }
 
         return std::move(row);
-    }
-
-
-    static auto DecodeFixed64(const char* data) -> uint64_t {
-        uint64_t value = 0;
-        for(size_t i = 0; i < 8; i++) {
-            value <<= 8;
-            value += static_cast<uint8_t>(data[i]);
-        }
-        return value;
-    }
-
-    static auto EncodeFixed64(std::string* dst, uint64_t value) -> void {
-        for(size_t i = 0; i < 8; i++) {
-            dst->push_back(static_cast<char>(value & 0xff));
-            value >>= 8;
-        }
     }
 
 };

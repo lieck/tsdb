@@ -3,7 +3,7 @@
 
 namespace ljdb {
 
-Cache::Cache() : lru_(nullptr, nullptr, 0), capacity_(0) {
+Cache::Cache() : lru_(nullptr, 0, nullptr), capacity_(0) {
     lru_.next_ = &lru_;
     lru_.prev_ = &lru_;
 }
@@ -16,9 +16,11 @@ Cache::~Cache() {
     }
 }
 
-auto Cache::Insert(uint64_t key, void *value, uint32_t charge, void (*deleter)(void *)) -> void {
+auto Cache::Insert(uint64_t key, void *value, uint32_t charge, void (*deleter)(void *)) -> bool {
     std::scoped_lock<std::mutex> lock(mutex_);
-    ASSERT(table_.find(key) == table_.end(), "key already exists");
+    if(table_.find(key) != table_.end()) {
+        return false;
+    }
 
     auto e = new LRUHandle(value, charge, deleter);
     LruAppend(&lru_, e);
@@ -33,6 +35,8 @@ auto Cache::Insert(uint64_t key, void *value, uint32_t charge, void (*deleter)(v
         old->deleter_(old->value_);
         delete old;
     }
+
+    return true;
 }
 
 auto Cache::Lookup(uint64_t key) -> void * {

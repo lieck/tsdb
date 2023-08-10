@@ -1,4 +1,3 @@
-#pragma once
 
 #include <iostream>
 #include <cstring>
@@ -18,7 +17,7 @@ auto BlockBuilder::Add(const InternalKey &key, std::string_view value) -> bool {
         return false;
     }
 
-    uint32_t size = INTERNAL_KEY_LENGTH + value.size() + ENTRY_LENGTH_SIZE;
+    uint32_t size = INTERNAL_KEY_SIZE + value.size() + ENTRY_LENGTH_SIZE;
 
     if(curr_size_ + size > capacity_) {
         return false;
@@ -26,8 +25,8 @@ auto BlockBuilder::Add(const InternalKey &key, std::string_view value) -> bool {
     entry_offsets_.push_back(offset_);
 
     // 将 key 写入 data_ 中
-    std::memcpy(data_ + offset_, key.Encode().data(), INTERNAL_KEY_LENGTH);
-    offset_ += INTERNAL_KEY_LENGTH;
+    std::memcpy(data_ + offset_, key.Encode().data(), INTERNAL_KEY_SIZE);
+    offset_ += INTERNAL_KEY_SIZE;
 
     // 将 value_size 和 value 写入 data_ 中
     CodingUtil::PutUint32(data_ + offset_, value.size());

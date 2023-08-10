@@ -5,6 +5,14 @@
 
 namespace ljdb {
 
+struct DBOptions {
+    std::atomic_int32_t next_file_number_;
+
+    BackgroundTask *bg_task_;
+    TableCache *table_cache_;
+};
+
+
 struct DBMetaData {
 public:
 

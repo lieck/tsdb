@@ -12,16 +12,15 @@ auto SStableBuilder::Add(const InternalKey &key, std::string &value) -> void {
 
         // create a new block
         block_builder_.Init();
-        block_meta_.emplace_back(offset_, key.Encode());
-
+        first_key_ = key;
         if(!block_builder_.Add(key, value)) {
             throw Exception("SStableBuilder failed to add");
         }
 
-        estimated_size_ += 8 + INTERNAL_KEY_LENGTH;
+        estimated_size_ += 8 + INTERNAL_KEY_SIZE;
     }
 
-    estimated_size_ += INTERNAL_KEY_LENGTH + value.size() + 8;
+    estimated_size_ += INTERNAL_KEY_SIZE + value.size() + 8;
 }
 
 auto SStableBuilder::FlushBlock() -> void {
@@ -35,46 +34,46 @@ auto SStableBuilder::FlushBlock() -> void {
         // TODO(write file) 写入压缩后的数据, 校验和
         DiskManager::WriteBlock(file_, block->GetData(), block->GetDataSize());
 
+        // update block meta
+        block_meta_.emplace_back(offset_, block->GetDataSize(), first_key_);
         offset_ += block->GetDataSize();
-
-//        if(cache_ != nullptr) {
-//            // TODO(cache) add to cache
-//        }
     }
 }
 
 auto SStableBuilder::Builder() -> std::unique_ptr<SSTable> {
     FlushBlock();
 
-    char coding_offset[4];
     // calculate index block size
-    uint32_t size = block_meta_.size() * BlockBuilder::ENTRY_LENGTH_SIZE + 100;
-    for(auto &meta : block_meta_) {
-        size += CodingUtil::LENGTH_SIZE;
-        size += meta.first_key_.size();
-    }
+    uint32_t size = block_meta_.size() * (BlockBuilder::ENTRY_LENGTH_SIZE + BLOCK_HEADER_SIZE  +
+            INTERNAL_KEY_SIZE) + 400;
 
     // write index block
     BlockBuilder builder(size);
     builder.Init();
+
+    char buffer[BLOCK_HEADER_SIZE];
     for(auto &meta : block_meta_) {
-        CodingUtil::PutUint32(coding_offset, meta.offset_);
-        if(!builder.Add(InternalKey(meta.first_key_), coding_offset)) {
+        BlockHeader value(meta.offset_, meta.size_);
+        value.EncodeTo(buffer);
+
+        if(!builder.Add(InternalKey(meta.first_key_), std::string_view(buffer, BLOCK_HEADER_SIZE))) {
             throw Exception("SStableBuilder failed to add");
         }
     }
+
     auto index_block = builder.Builder();
     DiskManager::WriteBlock(file_, index_block->GetData(), index_block->GetDataSize());
+    offset_ += index_block->GetDataSize();
 
     // write meta block offset
-    CodingUtil::PutUint32(coding_offset, offset_);
-    DiskManager::WriteBlock(file_, coding_offset, CodingUtil::LENGTH_SIZE);
+    CodingUtil::PutUint32(buffer, offset_);
+    DiskManager::WriteBlock(file_, buffer, CodingUtil::LENGTH_SIZE);
+    offset_ += CodingUtil::LENGTH_SIZE;
 
     file_.flush();
     file_.close();
 
-    // TODO offset_ 是否正确？
-    return std::make_unique<SSTable>(file_number_, offset_, index_block);
+    return std::make_unique<SSTable>(file_number_, offset_, std::move(index_block));
 }
 
 }  // namespace ljdb

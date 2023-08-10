@@ -29,8 +29,8 @@ void BackgroundTask::BackgroundThreadMain() {
         }
 
         ASSERT(background_work_queue_.empty(), "background_work_queue_ is empty");
-        auto background_work_function = background_work_queue_.front().function;
-        void* background_work_arg = background_work_queue_.front().arg;
+        auto background_work_function = background_work_queue_.front().function_;
+        void* background_work_arg = background_work_queue_.front().arg_;
         background_work_queue_.pop();
         lock.unlock();
 

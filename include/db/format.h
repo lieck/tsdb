@@ -6,7 +6,7 @@
 
 namespace ljdb {
 
-const int32_t INTERNAL_KEY_LENGTH = LindormContest::VIN_LENGTH + 8;
+static const int32_t INTERNAL_KEY_SIZE = LindormContest::VIN_LENGTH + 8;
 
 struct InternalKey {
     explicit InternalKey() = default;

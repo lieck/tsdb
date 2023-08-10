@@ -8,6 +8,7 @@
 #include "sstable/block.h"
 #include "disk/disk_manager.h"
 #include "common/macros.h"
+#include "cache/table_cache.h"
 
 namespace ljdb {
 
@@ -15,10 +16,10 @@ const constexpr size_t SSTABLE_FOOTER_LENGTH = CodingUtil::LENGTH_SIZE;
 
 class SSTable {
 public:
-    SSTable(file_number_t file_number, uint64_t file_size);
+    SSTable(file_number_t file_number, uint64_t file_size, ShardedCache *cache);
 
-    SSTable(file_number_t file_number, uint64_t file_size, Block* index_block)
-        : file_number_(file_number), file_size_(file_size), index_block_(index_block) {}
+    SSTable(file_number_t file_number, uint64_t file_size, std::unique_ptr<Block> index_block, ShardedCache *cache = nullptr)
+        : file_number_(file_number), file_size_(file_size), index_block_(std::move(index_block)), cache_(cache) {}
 
     DISALLOW_COPY_AND_MOVE(SSTable);
 
@@ -36,8 +37,10 @@ private:
     file_number_t file_number_; // sstable 编号
     uint64_t file_size_; // sstable 大小
 
+    ShardedCache* cache_;
+
     // index block
-    Block* index_block_{nullptr};
+    std::unique_ptr<Block> index_block_{nullptr};
 };
 
 }  // namespace ljdb

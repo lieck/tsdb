@@ -34,7 +34,7 @@ public:
 
     void SetCapacity(uint64_t capacity) { capacity_ = capacity; }
 
-    auto Insert(uint64_t key, void *value, uint32_t charge, void (*deleter)(void* value)) -> void;
+    auto Insert(uint64_t key, void *value, uint32_t charge, void (*deleter)(void* value)) -> bool;
 
     auto Lookup(uint64_t key) -> void*;
 
@@ -66,8 +66,8 @@ public:
         }
     }
 
-    auto Insert(uint64_t key, void *value, uint32_t charge, void (*deleter)(void* value) = nullptr) -> void {
-        cache_[Hash(key)].Insert(key, value, charge, deleter);
+    auto Insert(uint64_t key, void *value, uint32_t charge, void (*deleter)(void* value) = nullptr) -> bool {
+        return cache_[Hash(key)].Insert(key, value, charge, deleter);
     }
 
     auto Lookup(uint64_t key) -> void* {

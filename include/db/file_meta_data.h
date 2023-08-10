@@ -1,9 +1,9 @@
-
+#pragma once
 
 #include <memory>
 #include "common/config.h"
+#include "format.h"
 #include "common/iterator.h"
-#include "cache/table_cache.h"
 
 namespace ljdb {
 
@@ -41,11 +41,7 @@ public:
 };
 
 
-static auto GetFileIterator(void *arg, const std::string &file_value) -> std::unique_ptr<Iterator> {
-    auto table_cache = reinterpret_cast<TableCache*>(arg);
-    FileMetaData file_meta_data(file_value);
-    return table_cache->NewTableIterator(file_meta_data.GetFileNumber());
-}
+static auto GetFileIterator(void *arg, const std::string &file_value) -> std::unique_ptr<Iterator>;
 
 auto NewFileMetaDataIterator(const std::vector<FileMetaData *> &files) -> std::unique_ptr<Iterator>;
 

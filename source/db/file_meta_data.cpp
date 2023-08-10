@@ -1,4 +1,5 @@
 #include "db/file_meta_data.h"
+#include "cache/table_cache.h"
 
 namespace ljdb {
 
@@ -16,7 +17,7 @@ FileMetaData::FileMetaData(const std::string &src) {
     file_number_ = CodingUtil::DecodeFixed64(src.data());
     file_size_ = CodingUtil::DecodeFixed64(src.data() + 8);
     smallest_ = InternalKey(src.substr(16));
-    largest_ = InternalKey(src.substr(16 + INTERNAL_KEY_LENGTH));
+    largest_ = InternalKey(src.substr(16 + INTERNAL_KEY_SIZE));
     allowed_seeks_ = static_cast<uint32_t>(file_size_ / 16384U);
 }
 
@@ -69,6 +70,11 @@ auto NewFileMetaDataIterator(const std::vector<FileMetaData *> &files) -> std::u
     return std::make_unique<FileMetaDataIterator>(files);
 }
 
+auto GetFileIterator(void *arg, const std::string &file_value) -> std::unique_ptr<Iterator> {
+    auto table_cache = reinterpret_cast<TableCache*>(arg);
+    FileMetaData file_meta_data(file_value);
+    return table_cache->NewTableIterator(&file_meta_data);
+}
 
 
 } // namespace ljdb

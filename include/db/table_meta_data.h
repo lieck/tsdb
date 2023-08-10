@@ -10,7 +10,7 @@
 #include "format.h"
 #include "common/iterator.h"
 #include "mem_table/mem_table.h"
-#include "db_meta_data.h"
+#include "db_options.h"
 #include "compaction.h"
 
 

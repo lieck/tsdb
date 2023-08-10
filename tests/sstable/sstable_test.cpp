@@ -15,7 +15,7 @@ TEST(SSTableTest, BasicAssertions) {
 
     SStableBuilder builder(test_file_number);
     for(int i = 0; i < 100; i++) {
-        auto key = generate_key(i);
+        auto key = GenerateKey(i);
         std::string value = "value" + std::to_string(i);
         builder.Add(key, value);
     }
@@ -26,7 +26,7 @@ TEST(SSTableTest, BasicAssertions) {
         ASSERT_EQ(iter->Valid(), true);
         std::string key = "key" + std::to_string(i);
         std::string value = "value" + std::to_string(i);
-        ASSERT_EQ(iter->GetKey(), generate_key(i));
+        ASSERT_EQ(iter->GetKey(), GenerateKey(i));
         ASSERT_EQ(iter->GetValue(), value);
         iter->Next();
     }

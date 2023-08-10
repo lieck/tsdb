@@ -4,7 +4,7 @@
 #include "TSDBEngine.hpp"
 
 namespace ljdb {
-
+    using LindormContest::VIN_LENGTH;
     using LindormContest::WriteRequest;
     using LindormContest::LatestQueryRequest;
     using LindormContest::TimeRangeQueryRequest;

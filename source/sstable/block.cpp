@@ -56,7 +56,7 @@ auto Block::BlockIterator::GetKey() -> InternalKey {
 }
 
 auto Block::BlockIterator::GetValue() -> std::string {
-    auto offset = entry_array_[curr_idx_] + INTERNAL_KEY_LENGTH;
+    auto offset = entry_array_[curr_idx_] + INTERNAL_KEY_SIZE;
 
     auto value_size = CodingUtil::DecodeUint32(data_ + offset);
     offset += CodingUtil::LENGTH_SIZE;
