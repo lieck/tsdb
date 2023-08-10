@@ -20,7 +20,7 @@ auto Cache::Insert(uint64_t key, void *value, uint32_t charge, void (*deleter)(v
     std::scoped_lock<std::mutex> lock(mutex_);
     ASSERT(table_.find(key) == table_.end(), "key already exists");
 
-    auto e = new LRUHandle(value, deleter, charge);
+    auto e = new LRUHandle(value, charge, deleter);
     LruAppend(&lru_, e);
     usage_ += charge;
     table_[key] = e;
@@ -75,7 +75,7 @@ auto Cache::LruAppend(Cache::LRUHandle *list, Cache::LRUHandle *e) -> void {
     e->next_->prev_ = e;
 }
 
-Cache::LRUHandle::LRUHandle(void *value, void (*deleter)(void *), uint32_t charge)
+Cache::LRUHandle::LRUHandle(void *value, uint32_t charge, void (*deleter)(void *))
     : value_(value), deleter_(deleter), charge_(charge), refs_(0), next_{nullptr}, prev_{nullptr} {}
 
 } // namespace ljdb

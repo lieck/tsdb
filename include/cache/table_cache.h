@@ -3,6 +3,7 @@
 
 #include "sstable/sstable.h"
 #include "cache.h"
+#include "db/file_meta_data.h"
 
 namespace ljdb {
 
@@ -10,24 +11,29 @@ namespace ljdb {
 // 维护 SSTable 资源的 Cache
 class TableCache {
 private:
+    // FileHandle 可能会被多个线程使用
     struct FileHandle {
-        std::shared_ptr<SSTable> sstable_;
-        int refs_;
+        SSTable* sstable_;
+
+        static void Deleter(void* value) {
+            auto file_handle = reinterpret_cast<FileHandle*>(value);
+            delete file_handle->sstable_;
+            file_handle->sstable_ = nullptr;
+        }
     };
 
 public:
     explicit TableCache(size_t max_file_number) : cache_(max_file_number) {}
 
-    auto OpenSSTable(file_number_t file_number) -> SSTable*;
-
-    auto CloseSSTable(file_number_t file_number) -> void;
-
     void AddSSTable(std::unique_ptr<SSTable> sstable);
 
     // 为 SSTable 创建一个迭代器
-    auto NewTableIterator(file_number_t file_number) -> std::unique_ptr<Iterator>;
+    auto NewTableIterator(FileMetaData *file_meta_data) -> std::unique_ptr<Iterator>;
 
 private:
+    auto FindTable(FileMetaData *file_meta_data) -> FileHandle*;
+
+    std::mutex mutex_;
     ShardedCache cache_;
 
 };

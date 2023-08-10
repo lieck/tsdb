@@ -23,7 +23,7 @@ private:
         LRUHandle *next_;
         LRUHandle *prev_;
 
-        explicit LRUHandle(void *value, void (*deleter)(void* value), uint32_t charge);
+        explicit LRUHandle(void *value, uint32_t charge, void (*deleter)(void* value) = nullptr);
     };
 
 public:
@@ -66,7 +66,7 @@ public:
         }
     }
 
-    auto Insert(uint64_t key, void *value, uint32_t charge, void (*deleter)(void* value)) -> void {
+    auto Insert(uint64_t key, void *value, uint32_t charge, void (*deleter)(void* value) = nullptr) -> void {
         cache_[Hash(key)].Insert(key, value, charge, deleter);
     }
 
@@ -80,7 +80,6 @@ public:
 
 private:
     auto Hash(uint64_t key) -> size_t { return hasher_(key); }
-
 
     Cache cache_[16];
     std::hash<uint64_t> hasher_;

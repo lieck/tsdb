@@ -104,7 +104,6 @@ auto Table::MemTableRangeQuery(Table::RangeQueryRequest &req, const std::shared_
 
 auto Table::SSTableQuery(size_t level, Table::QueryRequest &req) -> void {
 
-
     // 搜索 L0
     if(level == 0) {
         // TODO 默认搜索全部 L0 文件, 但可以搜索指定的 L0 文件
@@ -118,7 +117,7 @@ auto Table::SSTableQuery(size_t level, Table::QueryRequest &req) -> void {
 
 
 auto Table::FileTableQuery(FileMetaData *fileMetaData, Table::QueryRequest &req) -> void {
-    auto iter = table_cache_->NewTableIterator(fileMetaData->file_number_);
+    auto iter = table_cache_->NewTableIterator(fileMetaData);
     for(const auto& r : req.vin_) {
         iter->Seek(InternalKey(r, MAX_TIMESTAMP));
         if(iter->Valid()) {
@@ -135,7 +134,7 @@ auto Table::FileTableQuery(FileMetaData *fileMetaData, Table::QueryRequest &req)
 }
 
 void Table::FileTableRangeQuery(FileMetaData *fileMetaData, Table::RangeQueryRequest &req) {
-    auto iter = table_cache_->NewTableIterator(fileMetaData->file_number_);
+    auto iter = table_cache_->NewTableIterator(fileMetaData);
     iter->Seek(InternalKey(*req.vin_, req.time_upper_bound_));
     while(iter->Valid()) {
         auto key = iter->GetKey();
@@ -240,8 +239,8 @@ auto Table::DoManualCompaction(CompactionTask *task) -> bool {
         if(task->level_ == 0 && i == 0) {
             std::vector<std::unique_ptr<Iterator>> iters;
             for(auto &file : task->input_files_[i]) {
-                auto table = db_meta_data_->GetTableCache()->OpenSSTable(file->GetFileNumber());
-                iters.emplace_back(table->NewIterator());
+                auto iter = table_cache_->NewTableIterator(file);
+                iters.emplace_back(std::move(iter));
             }
             input_iters[0] = NewMergingIterator(iters);
         } else {

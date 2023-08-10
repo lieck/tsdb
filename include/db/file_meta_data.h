@@ -50,8 +50,7 @@ public:
 static auto GetFileIterator(void *arg, const std::string &file_value) -> std::unique_ptr<Iterator> {
     auto table_cache = reinterpret_cast<TableCache*>(arg);
     FileMetaData file_meta_data(file_value);
-    auto sstable = table_cache->OpenSSTable(file_meta_data.GetFileNumber());
-    return sstable->NewIterator();
+    return table_cache->NewTableIterator(file_meta_data.GetFileNumber());
 }
 
 auto NewFileMetaDataIterator(const std::vector<FileMetaData *> &files) -> std::unique_ptr<Iterator>;
