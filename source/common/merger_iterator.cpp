@@ -90,4 +90,4 @@ auto NewMergingIterator(std::vector<std::unique_ptr<Iterator>> children) -> std:
 }
 
 
-}; // namespace ljdb
+} // namespace ljdb

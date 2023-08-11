@@ -8,8 +8,6 @@
 
 namespace ljdb {
 
-static constexpr int CACHE_LINE_SIZE = 64;
-
 struct CacheHandle {
     cache_id_t cache_id_;
 
@@ -47,9 +45,6 @@ public:
     // 释放一个节点
     auto Release(CacheHandle *handle) -> void;
 
-    // 返回 lru 中所有节点的总大小
-    auto TotalCharge() -> uint64_t { return usage_; }
-
 private:
     // 将 e 从 lru 中移除
     auto LruRemove(CacheHandle *e) -> void;
@@ -68,18 +63,23 @@ private:
 
 class Cache {
 public:
+    Cache() = default;
+    ~Cache() = default;
+
+    DISALLOW_COPY_AND_MOVE(Cache);
+
     explicit Cache(uint64_t capacity) {
         for (auto & i : cache_) {
             i.SetCapacity(capacity / 16);
         }
     }
 
-    void Insert(uint64_t key, void *value, uint32_t charge, void (*deleter)(void* value) = nullptr) {
-        cache_[Hash(key)].Insert(key, value, charge, deleter);
+    auto Insert(uint64_t key, void *value, uint32_t charge, void (*deleter)(void* value) = nullptr) -> CacheHandle* {
+//        return cache_[Hash(key)].Insert(key, value, charge, deleter);
     }
 
     auto Lookup(uint64_t key) -> CacheHandle* {
-        return cache_[Hash(key)].Lookup(key);
+//        return cache_[Hash(key)].Lookup(key);
     }
 
     auto Release(CacheHandle *handle) -> void {

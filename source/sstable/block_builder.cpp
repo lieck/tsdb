@@ -1,5 +1,4 @@
 
-#include <iostream>
 #include <cstring>
 #include <memory>
 #include "sstable/block_builder.h"

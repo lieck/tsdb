@@ -13,7 +13,7 @@ class TableCache {
 private:
     // FileHandle 可能会被多个线程使用
     struct FileHandle {
-        SSTable* sstable_;
+        SSTable* sstable_{};
 
         static void Deleter(void* value) {
             auto file_handle = reinterpret_cast<FileHandle*>(value);
@@ -34,7 +34,8 @@ private:
     auto FindTable(FileMetaData *file_meta_data) -> FileHandle*;
 
     std::mutex mutex_;
-    ShardedCache cache_;
+    Cache cache_;
+
 
 };
 

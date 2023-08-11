@@ -40,9 +40,7 @@ public:
     ~TSDBEngineImpl() override;
 
 private:
-    int32_t next_table_number_;
-
-    ljdb::BackgroundTask *bg_worker_;
+    ljdb::Table *table;
 
 }; // End class TSDBEngineImpl.
 

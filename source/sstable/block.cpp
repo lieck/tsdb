@@ -8,10 +8,11 @@
 namespace ljdb {
 
 auto Block::NewIterator() -> std::unique_ptr<Iterator> {
+    ASSERT(block_magic_ == BLOCK_MAGIC, "Block magic number is not correct");
     return std::make_unique<BlockIterator>(data_, size_, num_entries_);
 }
 
-Block::Block(const char *data, uint32_t size) : data_(data), size_(size) {
+Block::Block(char *data, uint32_t size) : data_(data), size_(size) {
     auto offset = size_ - CodingUtil::LENGTH_SIZE;
     num_entries_ = CodingUtil::DecodeUint32(data_ + offset);
 }
@@ -28,7 +29,6 @@ void Block::BlockIterator::SeekToFirst() {
 
 void Block::BlockIterator::Seek(const InternalKey &key) {
     auto cmp = [this](uint32_t offset, const InternalKey &key) -> bool {
-        size_t key_size = CodingUtil::DecodeUint32(data_ + offset);
         offset += CodingUtil::LENGTH_SIZE;
 
         InternalKey a(data_ + offset);

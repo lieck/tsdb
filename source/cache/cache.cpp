@@ -1,6 +1,5 @@
 #include "cache/cache.h"
 
-
 namespace ljdb {
 
 LRUCache::LRUCache() : lru_(0, nullptr, 0, nullptr), capacity_(0) {
@@ -60,6 +59,9 @@ auto LRUCache::Release(CacheHandle *handle) -> void {
     handle->refs_--;
     if (handle->refs_ == 0) {
         LruRemove(handle);
+    }
+    if(handle->in_hash_table_) {
+        table_.erase(reinterpret_cast<uint64_t>(handle));
     }
 }
 

@@ -34,6 +34,13 @@ auto SStableBuilder::FlushBlock() -> void {
         // TODO(write file) 写入压缩后的数据, 校验和
         DiskManager::WriteBlock(file_, block->GetData(), block->GetDataSize());
 
+        // block cache
+        if(block_cache_ != nullptr) {
+            auto bh = block_cache_->Insert(
+                    GetBlockCacheID(offset_), block->GetData(), block->GetDataSize(), DeleterBlock);
+            block_cache_->Release(bh);
+        }
+
         // update block meta
         block_meta_.emplace_back(offset_, block->GetDataSize(), first_key_);
         offset_ += block->GetDataSize();
@@ -74,6 +81,10 @@ auto SStableBuilder::Builder() -> std::unique_ptr<SSTable> {
     file_.close();
 
     return std::make_unique<SSTable>(file_number_, offset_, std::move(index_block));
+}
+
+auto SStableBuilder::GetBlockCacheID(block_id_t block_id) -> cache_id_t {
+    return static_cast<cache_id_t>(file_number_) << 32 | block_id;
 }
 
 }  // namespace ljdb

@@ -1,4 +1,4 @@
-
+#pragma once
 
 #include "background.h"
 #include "cache/table_cache.h"
@@ -10,6 +10,7 @@ struct DBOptions {
 
     BackgroundTask *bg_task_;
     TableCache *table_cache_;
+    Cache *block_cache_;
 };
 
 
