@@ -3,12 +3,12 @@
 
 namespace ljdb {
 
-Cache::Cache() : lru_(nullptr, 0, nullptr), capacity_(0) {
+LRUCache::LRUCache() : lru_(0, nullptr, 0, nullptr), capacity_(0) {
     lru_.next_ = &lru_;
     lru_.prev_ = &lru_;
 }
 
-Cache::~Cache() {
+LRUCache::~LRUCache() {
     for (auto & it : table_) {
         auto e = it.second;
         e->deleter_(e->value_);
@@ -16,16 +16,18 @@ Cache::~Cache() {
     }
 }
 
-auto Cache::Insert(uint64_t key, void *value, uint32_t charge, void (*deleter)(void *)) -> bool {
+auto LRUCache::Insert(uint64_t key, void *value, uint32_t charge, void (*deleter)(void *)) -> CacheHandle* {
+    auto cache_handle = new CacheHandle(key, value, charge, deleter);
+
     std::scoped_lock<std::mutex> lock(mutex_);
     if(table_.find(key) != table_.end()) {
-        return false;
+        return cache_handle;
     }
 
-    auto e = new LRUHandle(value, charge, deleter);
-    LruAppend(&lru_, e);
+    LruAppend(&lru_, cache_handle);
+    cache_handle->in_hash_table_ = true;
     usage_ += charge;
-    table_[key] = e;
+    table_[key] = cache_handle;
 
     while(usage_ > capacity_ && lru_.next_ != &lru_) {
         auto old = lru_.next_;
@@ -35,11 +37,10 @@ auto Cache::Insert(uint64_t key, void *value, uint32_t charge, void (*deleter)(v
         old->deleter_(old->value_);
         delete old;
     }
-
-    return true;
+    return cache_handle;
 }
 
-auto Cache::Lookup(uint64_t key) -> void * {
+auto LRUCache::Lookup(uint64_t key) -> CacheHandle * {
     std::scoped_lock<std::mutex> lock(mutex_);
     auto it = table_.find(key);
     if (it == table_.end()) {
@@ -50,36 +51,31 @@ auto Cache::Lookup(uint64_t key) -> void * {
     }
 
     it->second->refs_++;
-    return it->second->value_;
+    return it->second;
 }
 
-auto Cache::Release(uint64_t key) -> void {
+auto LRUCache::Release(CacheHandle *handle) -> void {
     std::scoped_lock<std::mutex> lock(mutex_);
-    auto it = table_.find(key);
-    if (it == table_.end()) {
-        return;
-    }
-
-    assert(it->second->refs_ > 0);
-    it->second->refs_--;
-    if (it->second->refs_ == 0) {
-        LruAppend(&lru_, it->second);
+    assert(handle->refs_ > 0);
+    handle->refs_--;
+    if (handle->refs_ == 0) {
+        LruRemove(handle);
     }
 }
 
-auto Cache::LruRemove(Cache::LRUHandle *e) -> void {
+auto LRUCache::LruRemove(CacheHandle *e) -> void {
     e->prev_->next_ = e->next_;
     e->next_->prev_ = e->prev_;
 }
 
-auto Cache::LruAppend(Cache::LRUHandle *list, Cache::LRUHandle *e) -> void {
+auto LRUCache::LruAppend(CacheHandle *list, CacheHandle *e) -> void {
     e->next_ = list;
     e->prev_ = list->prev_;
     e->prev_->next_ = e;
     e->next_->prev_ = e;
 }
 
-Cache::LRUHandle::LRUHandle(void *value, uint32_t charge, void (*deleter)(void *))
-    : value_(value), deleter_(deleter), charge_(charge), refs_(0), next_{nullptr}, prev_{nullptr} {}
+CacheHandle::CacheHandle(cache_id_t cache_id, void *value, uint32_t charge, void (*deleter)(void *))
+    : cache_id_(cache_id), value_(value), deleter_(deleter), charge_(charge) {}
 
 } // namespace ljdb
