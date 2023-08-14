@@ -38,10 +38,10 @@ struct CompactionTask {
     uint64_t max_output_file_size_;
 
     // 压缩的输入文件
-    std::vector<std::shared_ptr<FileMetaData>> input_files_[2];
+    std::vector<FileMetaDataPtr> input_files_[2];
 
     // 压缩的输出文件
-    std::vector<std::shared_ptr<FileMetaData>> output_files_;
+    std::vector<FileMetaDataPtr> output_files_;
 };
 
 class TableMetaData {
@@ -80,19 +80,10 @@ public:
     // 生成压缩计划
     auto GenerateCompactionTask() -> CompactionTask*;
 
-    // 从文件中读取元数据
-    auto ReadMetaData(std::ifstream &file) const -> void;
-
-    // 写入元数据
-    auto WriteMetaData(std::ofstream &file) const -> void;
-
-private:
-    std::string table_name_;
-    // int32_t table_number_;
-
     // sstable
     std::vector<FileMetaDataPtr> files_[K_NUM_LEVELS];
 
+private:
     // Size Compaction 的压缩分数
     int size_compaction_level_{-1};
     double size_compaction_score_{-1};

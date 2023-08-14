@@ -11,6 +11,13 @@
 
 namespace ljdb {
 
+    const constexpr int TABLE_META_DATA_MAGIC = 0x02341678;
+
+Table::Table(std::string tableName, const Schema &schema, DBOptions *options) :
+table_name_(std::move(tableName)), schema_(schema), options_(options), table_cache_(options->table_cache_) {
+
+}
+
 
 auto Table::Upsert(const WriteRequest &wReq) -> int {
     std::unique_lock<std::mutex> lock(mutex_);
@@ -62,7 +69,7 @@ auto Table::ExecuteLatestQuery(const LatestQueryRequest &pReadReq, std::vector<R
     // 搜索 sstable
     for(auto & i : sstable) {
         for(const auto& f : i) {
-            FileTableQuery(f.get(), query);
+            FileTableQuery(f, query);
         }
     }
 
@@ -95,7 +102,7 @@ auto Table::ExecuteTimeRangeQuery(const TimeRangeQueryRequest &trReadReq, std::v
     // 搜索 sstable
     for(auto & i : sstable) {
         for(const auto& f : i) {
-            FileTableRangeQuery(f.get(), query);
+            FileTableRangeQuery(f, query);
         }
     }
 
@@ -145,7 +152,7 @@ auto Table::MemTableRangeQuery(Table::RangeQueryRequest &req, const std::shared_
     }
 }
 
-auto Table::FileTableQuery(FileMetaData *fileMetaData, Table::QueryRequest &req) -> void {
+auto Table::FileTableQuery(const FileMetaDataPtr& fileMetaData, Table::QueryRequest &req) -> void {
     if(req.vin_.empty()) {
         return;
     }
@@ -171,7 +178,7 @@ auto Table::FileTableQuery(FileMetaData *fileMetaData, Table::QueryRequest &req)
     }
 }
 
-void Table::FileTableRangeQuery(FileMetaData *fileMetaData, Table::RangeQueryRequest &req) {
+void Table::FileTableRangeQuery(const FileMetaDataPtr& fileMetaData, Table::RangeQueryRequest &req) {
     InternalKey internal_key(*req.vin_, req.time_upper_bound_);
     if(fileMetaData->smallest_ > internal_key || fileMetaData->largest_ < internal_key) {
         return;
@@ -264,7 +271,7 @@ auto Table::BackgroundCompaction(std::unique_lock<std::mutex> &lock) -> void {
         table_meta_data_.AddFileMetaData(task->level_ + 1, task->output_files_);
 
         if(task->type_ == CompactionType::SeekCompaction) {
-            table_meta_data_.ClearSeekCompaction();
+            table_meta_data_.ClearCompaction();
         }
     }
 }
@@ -342,7 +349,7 @@ auto Table::DoManualCompaction(CompactionTask *task) -> bool {
     return true;
 }
 
-auto Table::CompactMemTable(const std::shared_ptr<MemTable> &mem) -> FileMetaData * {
+auto Table::CompactMemTable(const std::shared_ptr<MemTable> &mem) -> FileMetaDataPtr {
     auto file_number = options_->NextFileNumber();
 
     SStableBuilder builder(file_number);
@@ -361,7 +368,7 @@ auto Table::CompactMemTable(const std::shared_ptr<MemTable> &mem) -> FileMetaDat
 
     auto sstable = builder.Builder();
 
-    auto file_meta_data = new FileMetaData(file_number, start_key, end_key, sstable->GetFileSize());
+    auto file_meta_data = std::make_shared<FileMetaData>(file_number, start_key, end_key, sstable->GetFileSize());
     table_cache_->AddSSTable(std::move(sstable));
 
     return file_meta_data;
@@ -371,6 +378,77 @@ auto Table::Shutdown() -> int {
     is_shutting_down_.store(true, std::memory_order_release);
     return 0;
 }
+
+    auto Table::WriteMetaData(std::ofstream &file) const -> void {
+        char buffer[FILE_META_DATA_SIZE];
+
+        file << TABLE_META_DATA_MAGIC;
+
+        // table name
+        CodingUtil::PutUint32(buffer, table_name_.size());
+        file.write(buffer, CodingUtil::LENGTH_SIZE);
+        file.write(table_name_.data(), static_cast<int64_t>(table_name_.size()));
+
+        // schema
+        std::string schema_str = CodingUtil::SchemaToBytes(schema_);
+        CodingUtil::PutUint32(buffer, schema_str.size());
+        file.write(schema_str.data(), schema_str.size());
+
+        // file number
+        for(const auto& level : table_meta_data_.files_) {
+            CodingUtil::PutUint32(buffer, level.size());
+            file.write(buffer, CodingUtil::LENGTH_SIZE);
+
+            for(auto &file_meta_data : level) {
+                std::string str;
+                file_meta_data->EncodeTo(&str);
+                file.write(buffer, FILE_META_DATA_SIZE);
+            }
+        }
+    }
+
+    auto Table::ReadMetaData(std::ifstream &file) -> void {
+        char buffer[FILE_META_DATA_SIZE];
+        uint32_t magic;
+        file >> magic;
+        if(magic != TABLE_META_DATA_MAGIC) {
+            throw std::runtime_error("table meta data magic error");
+        }
+
+        // table name
+        uint32_t table_name_size;
+        file.read(buffer, CodingUtil::LENGTH_SIZE);
+
+        table_name_size = CodingUtil::DecodeUint32(buffer);
+        if(FILE_META_DATA_SIZE >= table_name_size) {
+            std::string name(table_name_size, ' ');
+            file.read(name.data(), table_name_size);
+            table_name_ = name;
+        } else {
+            file.read(buffer, table_name_size);
+            buffer[table_name_size] = '\0';
+            table_name_ = std::string(buffer);
+        }
+
+        // schema
+        uint32_t schema_size;
+        file.read(buffer, CodingUtil::LENGTH_SIZE);
+        schema_size = CodingUtil::DecodeUint32(buffer);
+        std::string schema_str(schema_size, ' ');
+        file.read(schema_str.data(), schema_size);
+        schema_ = CodingUtil::BytesToSchema(schema_str);
+
+        // file number
+        for(auto & i : table_meta_data_.files_) {
+            uint32_t file_size;
+            file.read(buffer, CodingUtil::LENGTH_SIZE);
+            file_size = CodingUtil::DecodeUint32(buffer);
+            for(uint32_t j = 0; j < file_size; j++) {
+                file.read(buffer, FILE_META_DATA_SIZE);
+                i.emplace_back(std::make_shared<FileMetaData>(buffer));
+            }
+        }
+    }
 
 
 } // namespace ljdb

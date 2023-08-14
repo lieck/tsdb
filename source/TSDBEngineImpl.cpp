@@ -6,6 +6,7 @@
 //
 
 #include "TSDBEngineImpl.h"
+#include "common/exception.h"
 
 namespace LindormContest {
 
@@ -20,22 +21,36 @@ namespace LindormContest {
     }
 
     auto TSDBEngineImpl::connect() -> int {
-        // 读取元数据文件
-        ljdb::SSTable meta_data_file(0, 0, nullptr);
-        auto iter = meta_data_file.NewIterator();
-        for(iter->SeekToFirst(); iter->Valid(); iter->Next()) {
-            auto table_name = iter->GetKey();
-            auto table_meta_data = ljdb::TableMetaData::Decode(iter->value().ToString());
-            tables_.emplace(table_name, new ljdb::Table(table_name, table_meta_data.schema_, table_meta_data));
+        std::scoped_lock<std::mutex> lock(mutex_);
+        if(db_option_ == nullptr) {
+            db_option_ = ljdb::NewDBOptions();
         }
 
+        if(tables_.empty()) {
+            std::ifstream file;
+            try {
+                file = ljdb::DiskManager::OpenFile(dataDirPath + "/manifest_file");
+            } catch (ljdb::Exception &e) {
+                if(e.Type() == ljdb::ExceptionType::IO) {
+                    return 0;
+                }
+                return -1;
+            }
 
-        if(db_option_ == nullptr) {
-            db_option_ = new ljdb::DBOptions();
-            db_option_->table_cache_ = new ljdb::TableCache(1024);
-            db_option_->block_cache_ = new ljdb::Cache<ljdb::Block>(1 << 30);
-            db_option_->bg_task_ = new ljdb::BackgroundTask();
-            db_option_->next_file_number_ = 0;
+            try {
+                file.seekg(0, std::ios::end);
+                auto file_size = file.tellg();
+
+                file.seekg(0, std::ios::beg);
+                while(file.tellg() < file_size) {
+                    auto table = new ljdb::Table();
+                    table->ReadMetaData(file);
+                }
+            } catch (ljdb::Exception &e) {
+                file.close();
+                return -1;
+            }
+            file.close();
         }
         return 0;
     }
@@ -45,12 +60,29 @@ namespace LindormContest {
         if(tables_.count(tableName) == 1) {
             return -1;
         }
-        tables_.emplace(tableName, ljdb::Table(tableName, schema, nullptr));
+        tables_.emplace(tableName, new ljdb::Table(tableName, schema, nullptr));
         return 0;
     }
 
     auto TSDBEngineImpl::shutdown() -> int {
+        // 通知关闭
+        for(auto &table : tables_) {
+            table.second->Shutdown();
+        }
 
+        // TODO 等待关闭
+
+
+
+        // 写入元数据
+        try {
+            std::ofstream file(dataDirPath + "/manifest_file", std::ofstream::trunc);
+            for(auto &table : tables_) {
+                table.second->WriteMetaData(file);
+            }
+        } catch (ljdb::Exception &e) {
+            return -1;
+        }
 
         return 0;
     }

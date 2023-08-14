@@ -40,6 +40,10 @@ public:
         }
     }
 
+    auto Type() -> ExceptionType {
+        return type_;
+    }
+
 private:
 
     ExceptionType type_;

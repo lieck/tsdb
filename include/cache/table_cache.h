@@ -28,10 +28,10 @@ public:
     void AddSSTable(std::unique_ptr<SSTable> sstable);
 
     // 为 SSTable 创建一个迭代器
-    auto NewTableIterator(FileMetaData *file_meta_data) -> std::unique_ptr<Iterator>;
+    auto NewTableIterator(const FileMetaDataPtr& file_meta_data) -> std::unique_ptr<Iterator>;
 
 private:
-    auto FindTable(FileMetaData *file_meta_data) -> SSTable*;
+    auto FindTable(const FileMetaDataPtr& file_meta_data) -> SSTable*;
 
     std::mutex mutex_;
     Cache<SSTable> cache_;

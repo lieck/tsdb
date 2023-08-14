@@ -48,7 +48,8 @@ private:
     };
 
 public:
-    explicit Table(const std::string &tableName, const Schema &schema, DBOptions *options);
+    explicit Table() = default;
+    explicit Table(std::string tableName, const Schema &schema, DBOptions *options);
     ~Table() = default;
 
     DISALLOW_COPY_AND_MOVE(Table);
@@ -61,6 +62,12 @@ public:
 
     auto Shutdown() -> int;
 
+    // 从文件中读取元数据
+    auto ReadMetaData(std::ifstream &file) -> void;
+
+    // 写入元数据
+    auto WriteMetaData(std::ofstream &file) const -> void;
+
 private:
     // 查询 memtable 内复合条件的元素
     auto MemTableQuery(QueryRequest &req, const std::shared_ptr<MemTable>& memtable) -> void;
@@ -68,9 +75,9 @@ private:
     // 查询 memtable 内符合时间范围的元素
     auto MemTableRangeQuery(Table::RangeQueryRequest &req, const std::shared_ptr<MemTable>& memtable) -> void;
 
-    auto FileTableQuery(FileMetaData *fileMetaData, QueryRequest &req) -> void;
+    auto FileTableQuery(const FileMetaDataPtr& fileMetaData, QueryRequest &req) -> void;
 
-    void FileTableRangeQuery(FileMetaData *fileMetaData, Table::RangeQueryRequest &req);
+    void FileTableRangeQuery(const FileMetaDataPtr& fileMetaData, Table::RangeQueryRequest &req);
 
     // 后台线程任务
     static void BGWork(void* table);
@@ -86,13 +93,13 @@ private:
     auto DoManualCompaction(CompactionTask* task) -> bool;
 
     // 执行 Minor Compaction
-    auto CompactMemTable(const std::shared_ptr<MemTable>& mem) -> FileMetaData*;
+    auto CompactMemTable(const std::shared_ptr<MemTable>& mem) -> FileMetaDataPtr;
 
-    std::string table_name_;
-    Schema schema_;
-    DBOptions *options_;
+    std::string table_name_{};
+    Schema schema_{};
+    DBOptions *options_{nullptr};
 
-    TableCache *table_cache_;
+    TableCache *table_cache_{nullptr};
 
     std::atomic_bool is_shutting_down_{false};
 

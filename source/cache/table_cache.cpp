@@ -1,10 +1,11 @@
 #include "cache/table_cache.h"
+
+#include <utility>
 #include "cache/cache.h"
 
 namespace ljdb {
 
-
-auto TableCache::NewTableIterator(FileMetaData *file_meta_data) -> std::unique_ptr<Iterator> {
+auto TableCache::NewTableIterator(const FileMetaDataPtr& file_meta_data) -> std::unique_ptr<Iterator> {
     auto sstable = FindTable(file_meta_data);
     return sstable->NewIterator();
 }
@@ -15,7 +16,7 @@ void TableCache::AddSSTable(std::unique_ptr<SSTable> sstable) {
     cache_.Insert(file_number, std::move(sstable), 1);
 }
 
-auto TableCache::FindTable(FileMetaData *file_meta_data) -> SSTable * {
+auto TableCache::FindTable(const FileMetaDataPtr& file_meta_data) -> SSTable * {
     // 加锁保护同时调用 FindTable 查询同一个不在缓存的 SSTable
     std::scoped_lock<std::mutex> lock(mutex_);
 

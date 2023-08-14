@@ -1,4 +1,6 @@
 #include "db/file_meta_data.h"
+
+#include <utility>
 #include "cache/table_cache.h"
 
 namespace ljdb {
@@ -31,7 +33,7 @@ void FileMetaData::EncodeTo(std::string *dst) const {
 
 class FileMetaDataIterator : public Iterator {
 public:
-    explicit FileMetaDataIterator(const std::vector<FileMetaData *> &files) : files_(files) {}
+    explicit FileMetaDataIterator(std::vector<std::shared_ptr<FileMetaData>> files) : files_(std::move(files)) {}
 
     auto SeekToFirst() -> void override {
         index_ = 0;
@@ -62,18 +64,18 @@ public:
     }
 
 private:
-    std::vector<FileMetaData *> files_;
+    std::vector<FileMetaDataPtr> files_;
     size_t index_{0};
 };
 
-auto NewFileMetaDataIterator(const std::vector<FileMetaData *> &files) -> std::unique_ptr<Iterator> {
+auto NewFileMetaDataIterator(const std::vector<FileMetaDataPtr>& files) -> std::unique_ptr<Iterator> {
     return std::make_unique<FileMetaDataIterator>(files);
 }
 
 auto GetFileIterator(void *arg, const std::string &file_value) -> std::unique_ptr<Iterator> {
     auto table_cache = reinterpret_cast<TableCache*>(arg);
-    FileMetaData file_meta_data(file_value);
-    return table_cache->NewTableIterator(&file_meta_data);
+    auto file_meta_data = std::make_shared<FileMetaData>(file_value);
+    return table_cache->NewTableIterator(file_meta_data);
 }
 
 

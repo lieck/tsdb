@@ -41,11 +41,10 @@ public:
     uint32_t allowed_seeks_{};
 };
 
+using FileMetaDataPtr = std::shared_ptr<FileMetaData>;
 
 static auto GetFileIterator(void *arg, const std::string &file_value) -> std::unique_ptr<Iterator>;
 
-auto NewFileMetaDataIterator(const std::vector<FileMetaData *> &files) -> std::unique_ptr<Iterator>;
-
-using FileMetaDataPtr = std::shared_ptr<FileMetaData>;
+auto NewFileMetaDataIterator(std::vector<FileMetaDataPtr> files) -> std::unique_ptr<Iterator>;
 
 } // namespace ljdb
