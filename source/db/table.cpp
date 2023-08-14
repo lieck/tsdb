@@ -11,10 +11,6 @@
 
 namespace ljdb {
 
-Table::Table(std::string &tableName, Schema schema, DBMetaData *dbMetaData, TableCache *tableCache) :
-table_name_(tableName), schema_(std::move(schema)), db_meta_data_(dbMetaData), table_cache_(tableCache) {
-
-}
 
 auto Table::Upsert(const WriteRequest &wReq) -> int {
     std::unique_lock<std::mutex> lock(mutex_);
@@ -52,7 +48,7 @@ auto Table::ExecuteLatestQuery(const LatestQueryRequest &pReadReq, std::vector<R
         mem_table.push_back(mem_);
     }
 
-    std::vector<FileMetaData*> sstable[K_NUM_LEVELS];
+    std::vector<std::shared_ptr<FileMetaData>> sstable[K_NUM_LEVELS];
     for(int i = 0; i < K_NUM_LEVELS; ++i) {
         sstable[i] = table_meta_data_.GetFileMetaData(i);
     }
@@ -65,8 +61,8 @@ auto Table::ExecuteLatestQuery(const LatestQueryRequest &pReadReq, std::vector<R
 
     // 搜索 sstable
     for(auto & i : sstable) {
-        for(auto f : i) {
-            FileTableQuery(f, query);
+        for(const auto& f : i) {
+            FileTableQuery(f.get(), query);
         }
     }
 
@@ -85,7 +81,7 @@ auto Table::ExecuteTimeRangeQuery(const TimeRangeQueryRequest &trReadReq, std::v
         mem_table.push_back(mem_);
     }
 
-    std::vector<FileMetaData*> sstable[K_NUM_LEVELS];
+    std::vector<std::shared_ptr<FileMetaData>> sstable[K_NUM_LEVELS];
     for(int i = 0; i < K_NUM_LEVELS; ++i) {
         sstable[i] = table_meta_data_.GetFileMetaData(i);
     }
@@ -98,8 +94,8 @@ auto Table::ExecuteTimeRangeQuery(const TimeRangeQueryRequest &trReadReq, std::v
 
     // 搜索 sstable
     for(auto & i : sstable) {
-        for(auto f : i) {
-            FileTableRangeQuery(f, query);
+        for(const auto& f : i) {
+            FileTableRangeQuery(f.get(), query);
         }
     }
 
@@ -204,7 +200,7 @@ void Table::FileTableRangeQuery(FileMetaData *fileMetaData, Table::RangeQueryReq
 
 void Table::MaybeScheduleCompaction() {
     if(!imm_.empty() && table_meta_data_.ExistCompactionTask()) {
-        db_meta_data_->GetBackgroundTask()->Schedule(&Table::BGWork, this);
+        options_->bg_task_->Schedule(&Table::BGWork, this);
     }
 }
 
@@ -292,7 +288,7 @@ auto Table::DoManualCompaction(CompactionTask *task) -> bool {
             input_iters[0] = NewMergingIterator(iters);
         } else {
             auto file_iter = NewFileMetaDataIterator(task->input_files_[i]);
-            input_iters[i] = NewTwoLevelIterator(std::move(file_iter), GetFileIterator, db_meta_data_->GetTableCache());
+            input_iters[i] = NewTwoLevelIterator(std::move(file_iter), GetFileIterator, options_->table_cache_);
         }
     }
 
@@ -319,7 +315,7 @@ auto Table::DoManualCompaction(CompactionTask *task) -> bool {
                 delete builder;
             }
 
-            auto file_number = db_meta_data_->NextFileNumber();
+            auto file_number = options_->NextFileNumber();
             builder = new SStableBuilder(file_number);
             file_meta_data = new FileMetaData();
             file_meta_data->file_number_ = file_number;
@@ -347,7 +343,7 @@ auto Table::DoManualCompaction(CompactionTask *task) -> bool {
 }
 
 auto Table::CompactMemTable(const std::shared_ptr<MemTable> &mem) -> FileMetaData * {
-    auto file_number = db_meta_data_->NextFileNumber();
+    auto file_number = options_->NextFileNumber();
 
     SStableBuilder builder(file_number);
     auto iter = mem->NewIterator();
@@ -364,14 +360,17 @@ auto Table::CompactMemTable(const std::shared_ptr<MemTable> &mem) -> FileMetaDat
     }
 
     auto sstable = builder.Builder();
-    table_cache_->AddSSTable(std::move(sstable));
-
 
     auto file_meta_data = new FileMetaData(file_number, start_key, end_key, sstable->GetFileSize());
+    table_cache_->AddSSTable(std::move(sstable));
+
     return file_meta_data;
 }
 
-
+auto Table::Shutdown() -> int {
+    is_shutting_down_.store(true, std::memory_order_release);
+    return 0;
+}
 
 
 } // namespace ljdb
