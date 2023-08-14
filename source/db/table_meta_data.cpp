@@ -1,10 +1,11 @@
 #include <memory>
+#include <utility>
 #include "db/table_meta_data.h"
 
 
 namespace ljdb {
 
-
+const constexpr int TABLE_META_DATA_MAGIC = 0x02341678;
 
 
 auto TableMetaData::TotalFileSize(int level) -> uint64_t {
@@ -16,8 +17,8 @@ auto TableMetaData::TotalFileSize(int level) -> uint64_t {
 }
 
 void TableMetaData::GetOverlappingInputs(int level, const InternalKey *begin, const InternalKey *end,
-                                         std::vector<FileMetaData *> *inputs) {
-    for(auto file : files_[level]) {
+                                         std::vector<FileMetaDataPtr> *inputs) {
+    for(const auto& file : files_[level]) {
         if(file->GetSmallest() > *end && *begin > file->GetLargest()) {
             continue;
         }
@@ -46,13 +47,13 @@ void TableMetaData::Finalize() {
     size_compaction_score_ = best_score;
 }
 
-void TableMetaData::SeekCompaction(int level, FileMetaData *meta_data) {
+void TableMetaData::SeekCompaction(int level, FileMetaDataPtr meta_data) {
     if(seek_compaction_level_ != -1) {
         return;
     }
 
     seek_compaction_level_ = level;
-    seek_compaction_file_ = meta_data;
+    seek_compaction_file_ = std::move(meta_data);
 }
 
 auto TableMetaData::GenerateCompactionTask() -> CompactionTask* {
@@ -114,12 +115,12 @@ auto TableMetaData::GenerateCompactionTask() -> CompactionTask* {
     return task;
 }
 
-void TableMetaData::AddFileMetaData(int32_t level, const std::vector<FileMetaData *> &file) {
+void TableMetaData::AddFileMetaData(int32_t level, const std::vector<std::shared_ptr<FileMetaData>> &file) {
     files_[level].insert(files_[level].end(), file.begin(), file.end());
     std::sort(files_[level].begin(), files_[level].end());
 }
 
-void TableMetaData::RemoveFileMetaData(int32_t level, const std::vector<FileMetaData *> &file) {
+void TableMetaData::RemoveFileMetaData(int32_t level, const std::vector<std::shared_ptr<FileMetaData>> &file) {
     for(auto &f : file) {
         auto it = std::find(files_[level].begin(), files_[level].end(), f);
         if(it != files_[level].end()) {
@@ -128,9 +129,68 @@ void TableMetaData::RemoveFileMetaData(int32_t level, const std::vector<FileMeta
     }
 }
 
-void TableMetaData::ClearSeekCompaction() {
+void TableMetaData::ClearCompaction() {
     seek_compaction_level_ = -1;
     seek_compaction_file_ = nullptr;
+
+    size_compaction_level_ = -1;
+    size_compaction_score_ = 0;
+}
+
+auto TableMetaData::WriteMetaData(std::ofstream &file) const -> void {
+    char buffer[FILE_META_DATA_SIZE];
+
+    file << TABLE_META_DATA_MAGIC;
+
+    // table name
+    CodingUtil::PutUint32(buffer, table_name_.size());
+    file.write(buffer, CodingUtil::LENGTH_SIZE);
+    file.write(table_name_.data(), static_cast<long long>(table_name_.size()));
+
+    // file number
+    for(const auto& level : files_) {
+        CodingUtil::PutUint32(buffer, level.size());
+        file.write(buffer, CodingUtil::LENGTH_SIZE);
+
+        for(auto &file_meta_data : level) {
+            std::string str;
+            file_meta_data->EncodeTo(&str);
+            file.write(buffer, FILE_META_DATA_SIZE);
+        }
+    }
+}
+
+auto TableMetaData::ReadMetaData(std::ifstream &file) const -> void {
+    char buffer[FILE_META_DATA_SIZE];
+    uint32_t magic;
+    file >> magic;
+    if(magic != TABLE_META_DATA_MAGIC) {
+        throw std::runtime_error("table meta data magic error");
+    }
+
+    // table name
+    uint32_t table_name_size;
+    file.read(buffer, CodingUtil::LENGTH_SIZE);
+
+    table_name_size = CodingUtil::DecodeUint32(buffer);
+    file.read(buffer, table_name_size);
+
+    table_name_ = std::string(buffer, table_name_size);
+
+    // file number
+    for(auto &level : files_) {
+        uint32_t file_size;
+        file.read(buffer, CodingUtil::LENGTH_SIZE);
+
+        file_size = CodingUtil::DecodeUint32(buffer);
+
+        for(uint32_t i = 0; i < file_size; i++) {
+            file.read(buffer, FILE_META_DATA_SIZE);
+            auto file_meta_data = new FileMetaData();
+            file_meta_data->DecodeFrom(buffer);
+            level.push_back(file_meta_data);
+        }
+    }
 }
 
 

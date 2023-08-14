@@ -26,7 +26,7 @@ void FileMetaData::EncodeTo(std::string *dst) const {
     dst->append(reinterpret_cast<const char *>(&file_size_), sizeof(file_size_));
     dst->append(smallest_.Encode());
     dst->append(largest_.Encode());
-    dst->append(reinterpret_cast<const char *>(&allowed_seeks_), sizeof(allowed_seeks_));
+    // dst->append(reinterpret_cast<const char *>(&allowed_seeks_), sizeof(allowed_seeks_));
 }
 
 class FileMetaDataIterator : public Iterator {

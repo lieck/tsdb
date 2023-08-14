@@ -48,7 +48,7 @@ private:
     };
 
 public:
-    explicit Table(std::string &tableName, Schema schema, DBMetaData *dbMetaData, TableCache *tableCache);
+    explicit Table(const std::string &tableName, const Schema &schema, DBOptions *options);
     ~Table() = default;
 
     DISALLOW_COPY_AND_MOVE(Table);
@@ -58,6 +58,8 @@ public:
     auto ExecuteLatestQuery(const LatestQueryRequest &pReadReq, std::vector<Row> &pReadRes) -> int;
 
     auto ExecuteTimeRangeQuery(const TimeRangeQueryRequest &trReadReq, std::vector<Row> &trReadRes) -> int;
+
+    auto Shutdown() -> int;
 
 private:
     // 查询 memtable 内复合条件的元素
@@ -88,9 +90,11 @@ private:
 
     std::string table_name_;
     Schema schema_;
-    DBMetaData *db_meta_data_;
+    DBOptions *options_;
 
     TableCache *table_cache_;
+
+    std::atomic_bool is_shutting_down_{false};
 
     // 下述是需要锁保护的变量
     std::mutex mutex_;

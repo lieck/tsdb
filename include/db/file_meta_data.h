@@ -7,6 +7,7 @@
 
 namespace ljdb {
 
+const constexpr uint32_t FILE_META_DATA_SIZE = INTERNAL_KEY_SIZE * 2 + sizeof(uint64_t) + sizeof(uint32_t);
 
 class FileMetaData {
 public:
@@ -45,5 +46,6 @@ static auto GetFileIterator(void *arg, const std::string &file_value) -> std::un
 
 auto NewFileMetaDataIterator(const std::vector<FileMetaData *> &files) -> std::unique_ptr<Iterator>;
 
+using FileMetaDataPtr = std::shared_ptr<FileMetaData>;
 
 } // namespace ljdb

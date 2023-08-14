@@ -18,7 +18,7 @@ private:
         static void Deleter(void* value) {
             auto file_handle = reinterpret_cast<FileHandle*>(value);
             delete file_handle->sstable_;
-            file_handle->sstable_ = nullptr;
+            delete file_handle;
         }
     };
 
@@ -31,10 +31,10 @@ public:
     auto NewTableIterator(FileMetaData *file_meta_data) -> std::unique_ptr<Iterator>;
 
 private:
-    auto FindTable(FileMetaData *file_meta_data) -> FileHandle*;
+    auto FindTable(FileMetaData *file_meta_data) -> SSTable*;
 
     std::mutex mutex_;
-    Cache cache_;
+    Cache<SSTable> cache_;
 
 
 };

@@ -25,23 +25,25 @@ public:
      */
     explicit TSDBEngineImpl(const std::string &dataDirPath);
 
-    int connect() override;
+    auto connect() -> int override;
 
-    int createTable(const std::string &tableName, const Schema &schema) override;
+    auto createTable(const std::string &tableName, const Schema &schema) -> int override;
 
-    int shutdown() override;
+    auto shutdown() -> int override;
 
-    int upsert(const WriteRequest &wReq) override;
+    auto upsert(const WriteRequest &wReq) -> int override;
 
-    int executeLatestQuery(const LatestQueryRequest &pReadReq, std::vector<Row> &pReadRes) override;
+    auto executeLatestQuery(const LatestQueryRequest &pReadReq, std::vector<Row> &pReadRes) -> int override;
 
-    int executeTimeRangeQuery(const TimeRangeQueryRequest &trReadReq, std::vector<Row> &trReadRes) override;
+    auto executeTimeRangeQuery(const TimeRangeQueryRequest &trReadReq, std::vector<Row> &trReadRes) -> int override;
 
     ~TSDBEngineImpl() override;
 
 private:
-    ljdb::Table *table;
+    ljdb::DBOptions *db_option_{};
 
+    std::mutex mutex_;
+    std::unordered_map<std::string, ljdb::Table*> tables_;
 }; // End class TSDBEngineImpl.
 
 }; // End namespace LindormContest.
