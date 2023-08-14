@@ -11,7 +11,7 @@
 namespace ljdb {
 
 
-SSTable::SSTable(file_number_t file_number, uint64_t file_size, Cache *cache) : file_number_(file_number), file_size_(file_size), cache_(cache) {
+SSTable::SSTable(file_number_t file_number, uint64_t file_size, Cache<Block> *cache) : file_number_(file_number), file_size_(file_size), cache_(cache) {
     // read sstable footer
     char footer_buffer[SSTABLE_FOOTER_LENGTH];
     auto footer_offset = file_size_ - SSTABLE_FOOTER_LENGTH;
@@ -41,8 +41,7 @@ auto SSTable::ReadBlock(void *arg, const std::string &key) -> std::unique_ptr<It
         auto cache_id = sstable->GetBlockCacheID(block_header.offset_);
         auto handle = sstable->cache_->Lookup(cache_id);
         if(handle != nullptr) {
-            auto block = reinterpret_cast<Block *>(handle->value_);
-            auto iter = block->NewIterator();
+            auto iter = handle->value_->NewIterator();
             iter->RegisterCleanup(IteratorCleanupBlockCache, sstable->cache_, handle);
             return iter;
         }
@@ -58,7 +57,7 @@ auto SSTable::ReadBlock(void *arg, const std::string &key) -> std::unique_ptr<It
     if(sstable->cache_ != nullptr) {
         // 插入到 cache 中, 当前引用计数为1
         auto cache_id = sstable->GetBlockCacheID(block_header.offset_);
-        auto handle = sstable->cache_->Insert(cache_id, block, 1, DeleterBlock);
+        auto handle = sstable->cache_->Insert(cache_id, std::unique_ptr<Block>(block), 1);
         iter->RegisterCleanup(IteratorCleanupBlockCache, sstable->cache_, handle);
     } else {
         iter->RegisterCleanup(IteratorCleanupBlock, nullptr, block);

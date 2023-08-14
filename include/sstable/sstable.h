@@ -14,31 +14,26 @@ namespace ljdb {
 
 const constexpr size_t SSTABLE_FOOTER_LENGTH = CodingUtil::LENGTH_SIZE;
 
-// block cache 中的删除操作
-static void DeleterBlock(void* value) {
-    // TODO 在类型转换时使用 magic number Debug 是否合适？
-    delete reinterpret_cast<Block*>(value);
-}
 
 // iterator 中支持 cache 的删除操作
 static void IteratorCleanupBlockCache(void *arg, void* value) {
-    auto *block_cache = reinterpret_cast<Cache*>(arg);
-    auto *handle = reinterpret_cast<CacheHandle*>(value);
+    auto block_cache = reinterpret_cast<Cache<Block>*>(arg);
+    auto handle = reinterpret_cast<CacheHandle<Block>*>(value);
     block_cache->Release(handle);
 }
 
 // iterator 中不使用 cache 的删除操作
 static void IteratorCleanupBlock(void *arg, void* value) {
-    auto *block = reinterpret_cast<Block*>(value);
+    auto block = reinterpret_cast<Block*>(value);
     delete block;
 }
 
 
 class SSTable {
 public:
-    SSTable(file_number_t file_number, uint64_t file_size, Cache *cache = nullptr);
+    SSTable(file_number_t file_number, uint64_t file_size, Cache<Block> *cache = nullptr);
 
-    SSTable(file_number_t file_number, uint64_t file_size, std::unique_ptr<Block> index_block, Cache *cache = nullptr)
+    SSTable(file_number_t file_number, uint64_t file_size, std::unique_ptr<Block> index_block, Cache<Block> *cache = nullptr)
         : file_number_(file_number), file_size_(file_size), index_block_(std::move(index_block)), cache_(cache) {}
 
     DISALLOW_COPY_AND_MOVE(SSTable);
@@ -57,7 +52,7 @@ private:
     file_number_t file_number_; // sstable 编号
     uint64_t file_size_; // sstable 大小
 
-    Cache* cache_;
+    Cache<Block>* cache_;
 
     // index block
     std::unique_ptr<Block> index_block_{nullptr};

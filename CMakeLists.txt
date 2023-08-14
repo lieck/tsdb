@@ -4,7 +4,7 @@ set(BUILD_SHARED_LIBS OFF)              # We expect external libraries to be lin
 set(CMAKE_CXX_STANDARD 17)              # Compile as C++17.
 set(CMAKE_CXX_STANDARD_REQUIRED ON)     # Require C++17 support.
 
-project(ljdb)
+project(lindorm_contest)
 
 # We use g++-12 to compile, so that we recommend you to use the same compiler to test for better compatibility.
 message("Your OS: ${CMAKE_HOST_SYSTEM_NAME}")

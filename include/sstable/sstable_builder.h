@@ -43,7 +43,7 @@ struct BlockMeta {
 
 class SStableBuilder {
 public:
-    explicit SStableBuilder(file_number_t file_number, Cache *block_cache = nullptr, uint32_t block_size = SSTABLE_BLOCK_CAPACITY)
+    explicit SStableBuilder(file_number_t file_number, Cache<Block> *block_cache = nullptr, uint32_t block_size = SSTABLE_BLOCK_CAPACITY)
         : file_number_(file_number), block_cache_(block_cache), file_(DiskManager::CreateSSTableFile(file_number)), block_builder_(block_size) {}
 
     // 要求：之前没有调用过 Builder
@@ -63,7 +63,7 @@ private:
     file_number_t file_number_;
 
     std::ofstream file_;
-    Cache *block_cache_;
+    Cache<Block> *block_cache_;
 
     BlockBuilder block_builder_;    // 用于构建 block
     InternalKey first_key_;         // 当前构建 block 的第一个 key

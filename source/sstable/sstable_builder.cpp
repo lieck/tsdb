@@ -34,16 +34,19 @@ auto SStableBuilder::FlushBlock() -> void {
         // TODO(write file) 写入压缩后的数据, 校验和
         DiskManager::WriteBlock(file_, block->GetData(), block->GetDataSize());
 
-        // block cache
-        if(block_cache_ != nullptr) {
-            auto bh = block_cache_->Insert(
-                    GetBlockCacheID(offset_), block->GetData(), block->GetDataSize(), DeleterBlock);
-            block_cache_->Release(bh);
-        }
+        auto block_id = offset_;
 
         // update block meta
         block_meta_.emplace_back(offset_, block->GetDataSize(), first_key_);
         offset_ += block->GetDataSize();
+
+        // block cache
+        if(block_cache_ != nullptr) {
+            auto bh = block_cache_->Insert(
+                    GetBlockCacheID(block_id), std::move(block), block->GetDataSize());
+            block_cache_->Release(bh);
+        }
+
     }
 }
 
