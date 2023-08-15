@@ -3,7 +3,7 @@
 #include "background.h"
 #include "cache/table_cache.h"
 
-namespace ljdb {
+namespace LindormContest {
 
 struct DBOptions {
 

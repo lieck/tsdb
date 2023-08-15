@@ -1,6 +1,6 @@
 #include "common/two_level_iterator.h"
 
-namespace ljdb {
+namespace LindormContest {
 
 class TwoLevelIterator : public Iterator {
 public:

@@ -4,7 +4,7 @@
 #include "common/macros.h"
 #include "db/format.h"
 
-namespace ljdb {
+namespace LindormContest {
 
 class Iterator {
 public:

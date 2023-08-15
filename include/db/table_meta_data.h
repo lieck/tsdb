@@ -13,7 +13,7 @@
 #include "db_options.h"
 #include "compaction.h"
 
-namespace ljdb {
+namespace LindormContest {
 
 // 返回每层的最大文件大小
 static auto MaxBytesForLevel(int level) -> double {

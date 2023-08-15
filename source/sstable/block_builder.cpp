@@ -5,7 +5,7 @@
 #include "common/macros.h"
 
 
-namespace ljdb {
+namespace LindormContest {
 
 BlockBuilder::~BlockBuilder() {
     delete data_;

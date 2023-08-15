@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-namespace ljdb {
+namespace LindormContest {
 
 
 static constexpr uint32_t SSTABLE_BLOCK_CAPACITY = 4096;

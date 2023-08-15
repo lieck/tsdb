@@ -6,7 +6,7 @@
 #include "sklip_list.h"
 #include "common/iterator.h"
 
-namespace ljdb {
+namespace LindormContest {
 
 class MemTable {
 private:

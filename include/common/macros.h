@@ -3,7 +3,7 @@
 #include <cassert>
 #include <stdexcept>
 
-namespace ljdb {
+namespace LindormContest {
 
 #define ASSERT(expr, message) assert((expr) && (message))
 

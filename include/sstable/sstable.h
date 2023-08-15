@@ -10,7 +10,7 @@
 #include "common/macros.h"
 #include "cache/cache.h"
 
-namespace ljdb {
+namespace LindormContest {
 
 const constexpr size_t SSTABLE_FOOTER_LENGTH = CodingUtil::LENGTH_SIZE;
 

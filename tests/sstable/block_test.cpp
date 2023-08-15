@@ -3,7 +3,7 @@
 #include "test_util.h"
 
 
-namespace ljdb {
+namespace LindormContest {
 
 
 TEST(BlockTest, BasicAssertions) {

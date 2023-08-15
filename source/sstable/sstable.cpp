@@ -8,7 +8,7 @@
 #include "common/two_level_iterator.h"
 #include "sstable/sstable_builder.h"
 
-namespace ljdb {
+namespace LindormContest {
 
 
 SSTable::SSTable(file_number_t file_number, uint64_t file_size, Cache<Block> *cache) : file_number_(file_number), file_size_(file_size), cache_(cache) {

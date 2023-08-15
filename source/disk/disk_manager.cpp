@@ -5,7 +5,7 @@
 #include "common/exception.h"
 #include "common/macros.h"
 
-namespace ljdb {
+namespace LindormContest {
 
 
 auto DiskManager::CreateSSTableFile(file_number_t file_number) -> std::ofstream {

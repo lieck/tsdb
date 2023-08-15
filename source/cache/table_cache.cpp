@@ -3,7 +3,7 @@
 #include <utility>
 #include "cache/cache.h"
 
-namespace ljdb {
+namespace LindormContest {
 
 auto TableCache::NewTableIterator(const FileMetaDataPtr& file_meta_data) -> std::unique_ptr<Iterator> {
     auto sstable = FindTable(file_meta_data);
@@ -31,4 +31,4 @@ auto TableCache::FindTable(const FileMetaDataPtr& file_meta_data) -> SSTable * {
 }
 
 
-} // namespace ljdb
+}  // namespace LindormContest

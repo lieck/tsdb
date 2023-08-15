@@ -4,7 +4,7 @@
 #include "sstable/sstable_builder.h"
 #include "test_util.h"
 
-namespace ljdb {
+namespace LindormContest {
 
 
 

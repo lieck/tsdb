@@ -5,7 +5,7 @@
 #include "util/coding.h"
 #include "sstable/block.h"
 
-namespace ljdb {
+namespace LindormContest {
 
 auto Block::NewIterator() -> std::unique_ptr<Iterator> {
     ASSERT(block_magic_ == BLOCK_MAGIC, "Block magic number is not correct");

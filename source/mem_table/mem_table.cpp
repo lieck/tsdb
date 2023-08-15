@@ -1,7 +1,7 @@
 #include <memory>
 #include "mem_table/mem_table.h"
 
-namespace ljdb {
+namespace LindormContest {
 
 
 auto MemTable::Insert(Row row) -> bool {

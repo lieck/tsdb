@@ -5,7 +5,7 @@
 #include "cache.h"
 #include "db/file_meta_data.h"
 
-namespace ljdb {
+namespace LindormContest {
 
 
 // 维护 SSTable 资源的 Cache

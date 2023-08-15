@@ -4,7 +4,7 @@
 #include <mutex>
 #include <condition_variable>
 
-namespace ljdb {
+namespace LindormContest {
 
 class BackgroundTask {
 private:

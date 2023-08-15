@@ -3,7 +3,7 @@
 #include "common/macros.h"
 
 
-namespace ljdb {
+namespace LindormContest {
 
 void BackgroundTask::Schedule(void (*function)(void *), void *arg) {
     std::lock_guard<std::mutex> lock(mutex_);

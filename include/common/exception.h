@@ -3,7 +3,7 @@
 #include <stdexcept>
 #include <iostream>
 
-namespace ljdb {
+namespace LindormContest {
 
 enum class ExceptionType {
     // Invalid exception type

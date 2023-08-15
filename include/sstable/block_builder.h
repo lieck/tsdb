@@ -10,7 +10,7 @@
 #include "common/config.h"
 #include "common/macros.h"
 
-namespace ljdb {
+namespace LindormContest {
 
 // block format:
 // entry : | key | value length | value data|

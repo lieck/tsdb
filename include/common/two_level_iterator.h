@@ -3,7 +3,7 @@
 #include <memory>
 #include "common/iterator.h"
 
-namespace ljdb {
+namespace LindormContest {
 
 using BlockFunction = std::unique_ptr<Iterator> (*)(void *, const std::string &);
 

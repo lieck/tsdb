@@ -3,7 +3,7 @@
 
 #include "common/config.h"
 
-namespace ljdb {
+namespace LindormContest {
 
 class DiskManager {
 public:

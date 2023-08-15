@@ -11,7 +11,7 @@
 #include "sstable/sstable.h"
 #include "disk/disk_manager.h"
 
-namespace ljdb {
+namespace LindormContest {
 
 static constexpr uint32_t BLOCK_HEADER_SIZE = 16;
 

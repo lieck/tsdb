@@ -14,7 +14,7 @@
 #include "background.h"
 #include "compaction.h"
 
-namespace ljdb {
+namespace LindormContest {
 
 class Table {
 private:
@@ -49,7 +49,7 @@ private:
 
 public:
     explicit Table() = default;
-    explicit Table(std::string tableName, const Schema &schema, DBOptions *options);
+    explicit Table(std::string tableName, Schema schema, DBOptions *options);
     ~Table() = default;
 
     DISALLOW_COPY_AND_MOVE(Table);

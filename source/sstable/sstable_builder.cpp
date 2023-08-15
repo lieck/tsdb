@@ -4,7 +4,7 @@
 #include "common/exception.h"
 #include "util/coding.h"
 
-namespace ljdb {
+namespace LindormContest {
 
 auto SStableBuilder::Add(const InternalKey &key, std::string &value) -> void {
     if(!block_builder_.Add(key, value)) {

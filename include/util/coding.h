@@ -7,7 +7,7 @@
 #include "struct/Schema.h"
 #include "struct/Row.h"
 
-namespace ljdb {
+namespace LindormContest {
 
 
 

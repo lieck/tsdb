@@ -3,7 +3,7 @@
 
 #include <utility>
 
-namespace ljdb {
+namespace LindormContest {
 
 class MergingIterator : public Iterator {
 private:

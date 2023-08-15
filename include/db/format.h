@@ -4,7 +4,7 @@
 #include "util/coding.h"
 
 
-namespace ljdb {
+namespace LindormContest {
 
 static const int32_t INTERNAL_KEY_SIZE = LindormContest::VIN_LENGTH + 8;
 

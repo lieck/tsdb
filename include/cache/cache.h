@@ -6,7 +6,7 @@
 #include "common/config.h"
 #include "common/macros.h"
 
-namespace ljdb {
+namespace LindormContest {
 
     template<typename T>
     struct CacheHandle {

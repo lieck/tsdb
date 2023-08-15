@@ -5,7 +5,7 @@
 #include "format.h"
 #include "common/iterator.h"
 
-namespace ljdb {
+namespace LindormContest {
 
 const constexpr uint32_t FILE_META_DATA_SIZE = INTERNAL_KEY_SIZE * 2 + sizeof(uint64_t) + sizeof(uint32_t);
 

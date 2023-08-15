@@ -3,7 +3,7 @@
 #include <memory>
 #include "common/iterator.h"
 
-namespace ljdb {
+namespace LindormContest {
 
 auto NewMergingIterator(const std::vector<std::unique_ptr<Iterator>> &children) -> std::unique_ptr<Iterator>;
 

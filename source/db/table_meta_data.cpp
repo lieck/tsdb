@@ -3,7 +3,7 @@
 #include "db/table_meta_data.h"
 
 
-namespace ljdb {
+namespace LindormContest {
 
 
 

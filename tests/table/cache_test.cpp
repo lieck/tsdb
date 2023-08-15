@@ -4,7 +4,7 @@
 #include "cache/cache.h"
 
 
-namespace ljdb {
+namespace LindormContest {
 
 
 void InsertCache(LRUCache<size_t>& cache, size_t key) {

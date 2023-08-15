@@ -10,7 +10,7 @@
 #include "db/format.h"
 
 
-namespace ljdb {
+namespace LindormContest {
 
 class Block {
 private:

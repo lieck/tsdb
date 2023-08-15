@@ -9,12 +9,12 @@
 #include "common/merger_iterator.h"
 #include "common/two_level_iterator.h"
 
-namespace ljdb {
+namespace LindormContest {
 
     const constexpr int TABLE_META_DATA_MAGIC = 0x02341678;
 
-Table::Table(std::string tableName, const Schema &schema, DBOptions *options) :
-table_name_(std::move(tableName)), schema_(schema), options_(options), table_cache_(options->table_cache_) {
+Table::Table(std::string tableName, Schema schema, DBOptions *options) :
+table_name_(std::move(tableName)), schema_(std::move(schema)), options_(options), table_cache_(options->table_cache_) {
 
 }
 
@@ -392,7 +392,7 @@ auto Table::Shutdown() -> int {
         // schema
         std::string schema_str = CodingUtil::SchemaToBytes(schema_);
         CodingUtil::PutUint32(buffer, schema_str.size());
-        file.write(schema_str.data(), schema_str.size());
+        file.write(schema_str.data(), static_cast<int64_t>(schema_str.size()));
 
         // file number
         for(const auto& level : table_meta_data_.files_) {
