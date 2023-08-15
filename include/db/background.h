@@ -38,4 +38,4 @@ private:
 };
 
 
-}; // namespace ljdb
+}  // namespace LindormContest

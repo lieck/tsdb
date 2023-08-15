@@ -5,6 +5,6 @@
 
 namespace LindormContest {
 
-auto NewMergingIterator(const std::vector<std::unique_ptr<Iterator>> &children) -> std::unique_ptr<Iterator>;
+auto NewMergingIterator(std::vector<std::unique_ptr<Iterator>> children) -> std::unique_ptr<Iterator>;
 
 }; // namespace ljdb

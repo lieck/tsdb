@@ -8,6 +8,8 @@
 #include "db/background.h"
 #include "common/merger_iterator.h"
 #include "common/two_level_iterator.h"
+#include "db/file_meta_data.h"
+#include "common/logger.h"
 
 namespace LindormContest {
 
@@ -28,15 +30,22 @@ auto Table::Upsert(const WriteRequest &wReq) -> int {
         cv_.wait(lock);
     }
     write_queue_.pop();
+    if(mem_ == nullptr) {
+        mem_ = std::make_shared<MemTable>();
+    }
+    lock.unlock();
 
     // 将数据写入 memtable
     for(auto &row : wReq.rows) {
         // 判断 mem 是否写满
         if(mem_->ApproximateSize() >= K_MEM_TABLE_SIZE_THRESHOLD) {
+            lock.lock();
+            LOG_INFO("memtable is full, flush to immtable");
             imm_.push_back(mem_);
             mem_ = std::make_shared<MemTable>();
 
             MaybeScheduleCompaction();
+            lock.unlock();
         }
 
         mem_->Insert(row);
@@ -112,7 +121,7 @@ auto Table::ExecuteTimeRangeQuery(const TimeRangeQueryRequest &trReadReq, std::v
 auto Table::MemTableQuery(Table::QueryRequest &req, const std::shared_ptr<MemTable>& mem) -> void {
     auto vin_iter = req.vin_.begin();
     auto iter = mem->NewIterator();
-    iter->Seek(InternalKey(*vin_iter, MAX_TIMESTAMP));
+    iter->SeekToFirst();
 
     while(iter->Valid() && vin_iter != req.vin_.end()) {
         if(iter->GetKey().vin_ == *vin_iter) {
@@ -292,14 +301,14 @@ auto Table::DoManualCompaction(CompactionTask *task) -> bool {
                 auto iter = table_cache_->NewTableIterator(file);
                 iters.emplace_back(std::move(iter));
             }
-            input_iters[0] = NewMergingIterator(iters);
+            input_iters[0] = NewMergingIterator(std::move(iters));
         } else {
             auto file_iter = NewFileMetaDataIterator(task->input_files_[i]);
             input_iters[i] = NewTwoLevelIterator(std::move(file_iter), GetFileIterator, options_->table_cache_);
         }
     }
 
-    auto input_iter = NewMergingIterator(input_iters);
+    auto input_iter = NewMergingIterator(std::move(input_iters));
     if(input_iter == nullptr) {
         return false;
     }
@@ -451,4 +460,4 @@ auto Table::Shutdown() -> int {
     }
 
 
-} // namespace ljdb
+}  // namespace LindormContest

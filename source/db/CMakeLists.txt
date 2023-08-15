@@ -7,6 +7,7 @@ add_library(
         format.cpp
         table.cpp
         table_meta_data.cpp
+        db_options.cpp
 )
 
 set(ALL_OBJECT_FILES

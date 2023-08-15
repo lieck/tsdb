@@ -9,11 +9,11 @@ auto MemTable::Insert(Row row) -> bool {
     for(auto &col : row.columns) {
         if(col.second.getColumnType() == LindormContest::COLUMN_TYPE_DOUBLE_FLOAT) {
             buffer.resize(8);
-            memcpy(buffer.data(), &col.second.columnData, 8);
+            memcpy(buffer.data(), col.second.columnData, 8);
             approximate_size_ += 8;
         } else if(col.second.getColumnType() == LindormContest::COLUMN_TYPE_INTEGER) {
             buffer.resize(4);
-            memcpy(buffer.data(), &col.second.columnData, 4);
+            memcpy(buffer.data(), col.second.columnData, 4);
             approximate_size_ += 4;
         } else if(col.second.getColumnType() == LindormContest::COLUMN_TYPE_STRING) {
             std::pair<int32_t, const char *> value;
@@ -68,4 +68,4 @@ void MemTable::MemTableIterator::Next() {
 
 
 
-} // namespace ljdb
+}  // namespace LindormContest

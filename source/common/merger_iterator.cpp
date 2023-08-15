@@ -84,10 +84,9 @@ void MergingIterator::InitHeap() {
     }
 }
 
-
 auto NewMergingIterator(std::vector<std::unique_ptr<Iterator>> children) -> std::unique_ptr<Iterator> {
     return std::make_unique<MergingIterator>(std::move(children));
 }
 
 
-} // namespace ljdb
+}  // namespace LindormContest

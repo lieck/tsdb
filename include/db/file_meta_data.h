@@ -43,8 +43,10 @@ public:
 
 using FileMetaDataPtr = std::shared_ptr<FileMetaData>;
 
-static auto GetFileIterator(void *arg, const std::string &file_value) -> std::unique_ptr<Iterator>;
 
-auto NewFileMetaDataIterator(std::vector<FileMetaDataPtr> files) -> std::unique_ptr<Iterator>;
 
-} // namespace ljdb
+auto NewFileMetaDataIterator(const std::vector<FileMetaDataPtr>& files) -> std::unique_ptr<Iterator>;
+
+auto GetFileIterator(void *arg, const std::string &file_value) -> std::unique_ptr<Iterator>;
+
+}  // namespace LindormContest

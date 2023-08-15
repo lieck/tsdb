@@ -35,10 +35,8 @@ private:
 
     std::mutex mutex_;
     Cache<SSTable> cache_;
-
-
 };
 
 
 
-} // namespace ljdb
+}  // namespace LindormContest

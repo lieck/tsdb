@@ -40,10 +40,10 @@ public:
     ~TSDBEngineImpl() override;
 
 private:
-    ljdb::DBOptions *db_option_{};
+    DBOptions *db_option_{};
 
     std::mutex mutex_;
-    std::unordered_map<std::string, ljdb::Table*> tables_;
+    std::unordered_map<std::string, Table*> tables_;
 }; // End class TSDBEngineImpl.
 
 }; // End namespace LindormContest.

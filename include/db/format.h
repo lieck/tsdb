@@ -33,14 +33,14 @@ struct InternalKey {
 
     auto operator<(const InternalKey &rhs) const -> bool {
         if (vin_ == rhs.vin_) {
-            return timestamp_ < rhs.timestamp_;
+            return timestamp_ > rhs.timestamp_;
         }
         return vin_ < rhs.vin_;
     }
 
     auto operator>(const InternalKey &rhs) const -> bool {
         if (vin_ == rhs.vin_) {
-            return timestamp_ > rhs.timestamp_;
+            return timestamp_ < rhs.timestamp_;
         }
         return vin_ > rhs.vin_;
     }

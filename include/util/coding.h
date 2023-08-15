@@ -82,22 +82,24 @@ public:
             if (col.second == LindormContest::COLUMN_TYPE_DOUBLE_FLOAT) {
                 auto value = CodingUtil::DecodeDoubleFloat(data);
                 if (put) {
-                    row.columns.insert(std::make_pair(*col_iter, value));
+                    row.columns.insert(std::make_pair(col.first, value));
                 }
                 data += 8;
             } else if (col.second == LindormContest::COLUMN_TYPE_INTEGER) {
                 auto value = CodingUtil::DecodeInteger(data);
                 if (put) {
-                    row.columns.insert(std::make_pair(*col_iter, value));
+                    row.columns.insert(std::make_pair(col.first, value));
                 }
                 data += 4;
             } else if (col.second == LindormContest::COLUMN_TYPE_STRING) {
                 auto len = CodingUtil::DecodeInteger(data);
                 data += 4;
                 if (put) {
-                    row.columns.insert(std::make_pair(*col_iter, std::string(data, len)));
+                    row.columns.insert(std::make_pair(col.first, std::string(data, len)));
                 }
                 data += len;
+            } else {
+                throw std::runtime_error("unknown column type");
             }
         }
 

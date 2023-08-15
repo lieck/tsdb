@@ -18,7 +18,7 @@ auto DiskManager::OpenSSTableFile(file_number_t file_number) -> std::ifstream {
     return OpenFile(file_name);
 }
 
-auto ljdb::DiskManager::CreakWritableFile(const std::string& filename) -> std::ofstream {
+auto DiskManager::CreakWritableFile(const std::string& filename) -> std::ofstream {
     std::ofstream file(filename);
     if(!file.is_open()) {
         throw Exception(ExceptionType::IO, "Could not create file: " + filename);

@@ -54,4 +54,4 @@ private:
     std::map<InternalKey, std::string>::iterator iter_;
 };
 
-}  // namespace ljdb
+}  // namespace LindormContest

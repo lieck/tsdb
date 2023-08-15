@@ -23,15 +23,15 @@ namespace LindormContest {
     auto TSDBEngineImpl::connect() -> int {
         std::scoped_lock<std::mutex> lock(mutex_);
         if(db_option_ == nullptr) {
-            db_option_ = ljdb::NewDBOptions();
+            db_option_ = NewDBOptions();
         }
 
         if(tables_.empty()) {
             std::ifstream file;
             try {
-                file = ljdb::DiskManager::OpenFile(dataDirPath + "/manifest_file");
-            } catch (ljdb::Exception &e) {
-                if(e.Type() == ljdb::ExceptionType::IO) {
+                file = DiskManager::OpenFile(dataDirPath + "/manifest_file");
+            } catch (Exception &e) {
+                if(e.Type() == ExceptionType::IO) {
                     return 0;
                 }
                 return -1;
@@ -43,10 +43,10 @@ namespace LindormContest {
 
                 file.seekg(0, std::ios::beg);
                 while(file.tellg() < file_size) {
-                    auto table = new ljdb::Table();
+                    auto table = new Table();
                     table->ReadMetaData(file);
                 }
-            } catch (ljdb::Exception &e) {
+            } catch (Exception &e) {
                 file.close();
                 return -1;
             }
@@ -60,7 +60,7 @@ namespace LindormContest {
         if(tables_.count(tableName) == 1) {
             return -1;
         }
-        tables_.emplace(tableName, new ljdb::Table(tableName, schema, nullptr));
+        tables_.emplace(tableName, new Table(tableName, schema, nullptr));
         return 0;
     }
 
@@ -80,7 +80,7 @@ namespace LindormContest {
             for(auto &table : tables_) {
                 table.second->WriteMetaData(file);
             }
-        } catch (ljdb::Exception &e) {
+        } catch (Exception &e) {
             return -1;
         }
 

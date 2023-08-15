@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include "background.h"
 #include "cache/table_cache.h"
 
@@ -16,16 +17,9 @@ struct DBOptions {
 
     BackgroundTask *bg_task_;
 
-    std::atomic_int32_t next_file_number_;
+    std::atomic<int32_t> next_file_number_{0};
 };
 
-auto NewDBOptions() -> DBOptions * {
-    auto db_options = new DBOptions();
-    db_options->table_cache_ = new TableCache(1024);
-    db_options->block_cache_ = new Cache<Block>(1 << 30);
-    db_options->bg_task_ = new BackgroundTask();
-    db_options->next_file_number_ = 0;
-    return db_options;
-}
+auto NewDBOptions() -> DBOptions *;
 
-} // namespace ljdb
+}  // namespace LindormContest
