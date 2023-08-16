@@ -34,4 +34,35 @@ TEST(SSTableTest, BasicAssertions) {
 }
 
 
-} // namespace ljdb
+TEST(SSTableTest, WriteSSTable) {
+    int32_t test_file_number = 13;
+
+    DiskManager::RemoveFile(GET_SSTABLE_NAME(test_file_number));
+
+    SStableBuilder builder(test_file_number);
+
+    std::map<InternalKey, Row> data;
+    for(int i = 0; i < 100; i++) {
+        auto key = GenerateKey(i);
+        auto row = GenerateRow(i);
+        data[key] = row;
+    }
+
+    for(auto &item : data) {
+        auto value = CodingUtil::EncodeRow(item.second);
+        builder.Add(item.first, value);
+    }
+
+    auto sstable = builder.Builder();
+    auto iter = sstable->NewIterator();
+    for(auto &item : data) {
+        ASSERT_EQ(iter->Valid(), true);
+        ASSERT_EQ(iter->GetKey(), item.first);
+        ASSERT_EQ(iter->GetValue(), CodingUtil::EncodeRow(item.second));
+        iter->Next();
+    }
+    DiskManager::RemoveFile(GET_SSTABLE_NAME(test_file_number));
+}
+
+
+}  // namespace LindormContest

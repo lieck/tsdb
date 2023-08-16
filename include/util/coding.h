@@ -68,6 +68,30 @@ public:
         return *reinterpret_cast<const double_t *>(data);
     }
 
+    static auto EncodeRow(Row row) -> std::string {
+        std::string buffer;
+        for(auto &col : row.columns) {
+            if(col.second.getColumnType() == LindormContest::COLUMN_TYPE_DOUBLE_FLOAT) {
+                buffer.resize(8);
+                memcpy(buffer.data(), col.second.columnData, 8);
+            } else if(col.second.getColumnType() == LindormContest::COLUMN_TYPE_INTEGER) {
+                buffer.resize(4);
+                memcpy(buffer.data(), col.second.columnData, 4);
+            } else if(col.second.getColumnType() == LindormContest::COLUMN_TYPE_STRING) {
+                std::pair<int32_t, const char *> value;
+                if(col.second.getStringValue(value) != 0) {
+                    return "";
+                }
+                buffer.resize(4 + value.first);
+                memcpy(buffer.data(), &value.first, 4);
+                memcpy(buffer.data() + 4, value.second, value.first);
+            } else {
+                return "";
+            }
+        }
+        return buffer;
+    }
+
     static auto DecodeRow(const char *data, LindormContest::Schema &schema,
                           const std::set<std::string> *columns) -> LindormContest::Row {
         LindormContest::Row row;

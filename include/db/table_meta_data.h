@@ -46,7 +46,7 @@ struct CompactionTask {
 
 class TableMetaData {
 public:
-    auto GetFileMetaData(size_t level) const -> const std::vector<FileMetaDataPtr>& {
+    auto GetFileMetaData(size_t level) const -> std::vector<FileMetaDataPtr> {
         return files_[level];
     }
 

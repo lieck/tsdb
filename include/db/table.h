@@ -68,6 +68,7 @@ public:
     // 写入元数据
     auto WriteMetaData(std::ofstream &file) const -> void;
 
+    auto TestGetTableMetaData() -> TableMetaData& { return table_meta_data_; }
 private:
     // 查询 memtable 内复合条件的元素
     auto MemTableQuery(QueryRequest &req, const std::shared_ptr<MemTable>& memtable) -> void;

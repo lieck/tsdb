@@ -58,10 +58,10 @@ auto Table::ExecuteLatestQuery(const LatestQueryRequest &pReadReq, std::vector<R
     auto query = QueryRequest(pReadReq.vins, pReadReq.requestedColumns, &pReadRes);
 
     std::unique_lock<std::mutex> lock(mutex_);
-    std::vector<std::shared_ptr<MemTable>> mem_table;
-    mem_table.push_back(mem_);
+    std::vector<std::shared_ptr<MemTable>> imm_table;
+    auto mem_table = mem_;
     for(auto iter = imm_.rbegin(); iter != imm_.rend(); ++iter) {
-        mem_table.push_back(mem_);
+        imm_table.push_back(*iter);
     }
 
     std::vector<std::shared_ptr<FileMetaData>> sstable[K_NUM_LEVELS];
@@ -70,9 +70,14 @@ auto Table::ExecuteLatestQuery(const LatestQueryRequest &pReadReq, std::vector<R
     }
     lock.unlock();
 
-    // 搜索 l0
-    for(auto &mem : mem_table) {
-        MemTableQuery(query, mem);
+    // mem 需要加锁
+    mem_table->Lock();
+    MemTableQuery(query, mem_table);
+    mem_table->Unlock();
+
+    // 搜索 imm
+    for(auto &imm : imm_table) {
+        MemTableQuery(query, imm);
     }
 
     // 搜索 sstable
@@ -91,10 +96,10 @@ auto Table::ExecuteTimeRangeQuery(const TimeRangeQueryRequest &trReadReq, std::v
                                    &trReadReq.requestedColumns, &trReadRes);
 
     std::unique_lock<std::mutex> lock(mutex_);
-    std::vector<std::shared_ptr<MemTable>> mem_table;
-    mem_table.push_back(mem_);
+    std::vector<std::shared_ptr<MemTable>> imm_table;
+    auto mem_table = mem_;
     for(auto iter = imm_.rbegin(); iter != imm_.rend(); ++iter) {
-        mem_table.push_back(mem_);
+        imm_table.push_back(mem_);
     }
 
     std::vector<std::shared_ptr<FileMetaData>> sstable[K_NUM_LEVELS];
@@ -103,9 +108,13 @@ auto Table::ExecuteTimeRangeQuery(const TimeRangeQueryRequest &trReadReq, std::v
     }
     lock.unlock();
 
-    // 搜索 l0
-    for(auto &mem : mem_table) {
-        MemTableRangeQuery(query, mem);
+    // mem 需要加锁
+    mem_table->Lock();
+    MemTableRangeQuery(query, mem_table);
+    mem_table->Unlock();
+
+    for(auto &imm : imm_table) {
+        MemTableRangeQuery(query, imm);
     }
 
     // 搜索 sstable
@@ -119,22 +128,17 @@ auto Table::ExecuteTimeRangeQuery(const TimeRangeQueryRequest &trReadReq, std::v
 }
 
 auto Table::MemTableQuery(Table::QueryRequest &req, const std::shared_ptr<MemTable>& mem) -> void {
-    auto vin_iter = req.vin_.begin();
     auto iter = mem->NewIterator();
     iter->SeekToFirst();
-
-    while(iter->Valid() && vin_iter != req.vin_.end()) {
-        if(iter->GetKey().vin_ == *vin_iter) {
+    while(iter->Valid()) {
+        if(req.vin_.count(iter->GetKey().vin_) == 1) {
             Row row = CodingUtil::DecodeRow(iter->GetValue().data(), schema_, &req.columns_);
             row.vin = iter->GetKey().vin_;
             row.timestamp = iter->GetKey().timestamp_;
             req.result_->push_back(row);
 
-            auto tmp = vin_iter;
-            ++vin_iter;
-            req.vin_.erase(tmp);
+            req.vin_.erase(iter->GetKey().vin_);
         }
-
         iter->Next();
     }
 }
@@ -167,23 +171,18 @@ auto Table::FileTableQuery(const FileMetaDataPtr& fileMetaData, Table::QueryRequ
     }
 
     auto iter = table_cache_->NewTableIterator(fileMetaData);
-    for(const auto& r : req.vin_) {
-        InternalKey internal_key(r, MAX_TIMESTAMP);
-        if(internal_key < fileMetaData->smallest_ || internal_key > fileMetaData->largest_) {
-            continue;
-        }
+    iter->SeekToFirst();
 
-        iter->Seek(internal_key);
-        if(iter->Valid()) {
-            auto key = iter->GetKey();
-            if(key.vin_ == r) {
-                Row row = CodingUtil::DecodeRow(iter->GetValue().data(), schema_, &req.columns_);
-                row.vin = key.vin_;
-                row.timestamp = key.timestamp_;
-                req.result_->push_back(row);
-            }
-            iter->Next();
+    while(iter->Valid()) {
+        if(req.vin_.count(iter->GetKey().vin_) == 1) {
+            Row row = CodingUtil::DecodeRow(iter->GetValue().data(), schema_, &req.columns_);
+            row.vin = iter->GetKey().vin_;
+            row.timestamp = iter->GetKey().timestamp_;
+            req.result_->push_back(row);
+
+            req.vin_.erase(iter->GetKey().vin_);
         }
+        iter->Next();
     }
 }
 
@@ -215,7 +214,7 @@ void Table::FileTableRangeQuery(const FileMetaDataPtr& fileMetaData, Table::Rang
 }
 
 void Table::MaybeScheduleCompaction() {
-    if(!imm_.empty() && table_meta_data_.ExistCompactionTask()) {
+    if(!imm_.empty() || table_meta_data_.ExistCompactionTask()) {
         options_->bg_task_->Schedule(&Table::BGWork, this);
     }
 }
@@ -235,13 +234,12 @@ void Table::BackgroundCall() {
 auto Table::BackgroundCompaction(std::unique_lock<std::mutex> &lock) -> void {
     // 若有正在进行的压缩任务, 则等待
     while(is_compaction_running_) {
-        lock.unlock();
         cv_.wait(lock);
-        lock.lock();
     }
 
     // Minor Compaction
     if(!imm_.empty()) {
+        // TODO(lieck) 假设存在多个 immtable 应该同时压缩
         auto compaction_mem = imm_[0];
         is_compaction_running_ = true;
         lock.unlock();
@@ -256,6 +254,7 @@ auto Table::BackgroundCompaction(std::unique_lock<std::mutex> &lock) -> void {
         // 更新元数据
         imm_.erase(imm_.begin());
         table_meta_data_.AddFileMetaData(0, {file_meta});
+        LOG_DEBUG("Minor Compaction Done");
         return;
     }
 
@@ -286,8 +285,10 @@ auto Table::BackgroundCompaction(std::unique_lock<std::mutex> &lock) -> void {
 }
 
 auto Table::DoManualCompaction(CompactionTask *task) -> bool {
+    LOG_DEBUG("DoManualCompaction level: %d", task->level_);
     if(task->input_files_[1].empty()) {
         task->output_files_ = task->input_files_[1];
+        LOG_DEBUG("DoManualCompaction level: %d, no need to compact", task->level_);
         return true;
     }
 
@@ -354,11 +355,13 @@ auto Table::DoManualCompaction(CompactionTask *task) -> bool {
 
         delete builder;
     }
+    LOG_DEBUG("DoManualCompaction level: %d, output_files size: %zu", task->level_, task->output_files_.size());
 
     return true;
 }
 
 auto Table::CompactMemTable(const std::shared_ptr<MemTable> &mem) -> FileMetaDataPtr {
+    LOG_INFO("Compact MemTable table");
     auto file_number = options_->NextFileNumber();
 
     SStableBuilder builder(file_number);

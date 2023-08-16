@@ -5,6 +5,8 @@ namespace LindormContest {
 
 
 auto MemTable::Insert(Row row) -> bool {
+    approximate_size_ += INTERNAL_KEY_SIZE;
+
     std::string buffer;
     for(auto &col : row.columns) {
         if(col.second.getColumnType() == LindormContest::COLUMN_TYPE_DOUBLE_FLOAT) {

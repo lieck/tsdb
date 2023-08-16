@@ -29,21 +29,18 @@ void Block::BlockIterator::SeekToFirst() {
 
 void Block::BlockIterator::Seek(const InternalKey &key) {
     auto cmp = [this](uint32_t offset, const InternalKey &key) -> bool {
-        offset += CodingUtil::LENGTH_SIZE;
-
         InternalKey a(data_ + offset);
-
         return a < key;
     };
 
     uint32_t l = 0;
     uint32_t r = num_entries_ - 1;
-    while(l <= r) {
+    while(l < r) {
         uint32_t mid = (l + r) >> 1;
-        if(cmp(entry_array_[mid * CodingUtil::LENGTH_SIZE], key)) {
+        if(cmp(entry_array_[mid], key)) {
             l = mid + 1;
         } else {
-            r = mid - 1;
+            r = mid;
         }
     }
 

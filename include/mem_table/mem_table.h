@@ -26,7 +26,14 @@ public:
     auto Empty() const -> bool { return approximate_size_ == 0; }
 
     auto NewIterator() -> std::unique_ptr<Iterator>;
+
+    auto Lock() -> void { mutex_.lock(); }
+
+    auto Unlock() -> void { mutex_.unlock(); }
+
 private:
+    std::mutex mutex_;
+
     std::map<InternalKey, std::string> data_;
     size_t approximate_size_ = 0;
 };

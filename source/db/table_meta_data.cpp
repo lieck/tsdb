@@ -30,7 +30,7 @@ void TableMetaData::GetOverlappingInputs(int level, const InternalKey *begin, co
 void TableMetaData::Finalize() {
     // l0 compaction
     int best_level = 0;
-    double best_score = static_cast<double>(GetFileMetaData(0).size()) /
+    double best_score = static_cast<double>(files_[0].size()) /
                  static_cast<double>(K_L0_COMPACTION_TRIGGER);
 
     // l1 ~ l6 compaction
@@ -62,7 +62,7 @@ auto TableMetaData::GenerateCompactionTask() -> CompactionTask* {
 
     auto task = new CompactionTask();
 
-    auto &files = GetFileMetaData(size_compaction_level_);
+    auto files = GetFileMetaData(size_compaction_level_);
 
     // 确定压缩文件的开始位置
     size_t start_idx = 0;

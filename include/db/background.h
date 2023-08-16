@@ -22,6 +22,13 @@ public:
 
     void Schedule(void (*function)(void* arg), void* arg);
 
+    void WaitForEmptyQueue() {
+        std::unique_lock<std::mutex> lock(mutex_);
+        while(!background_work_queue_.empty()) {
+            cv_.wait(lock);
+        }
+    }
+
 private:
     static void BackgroundThread(BackgroundTask *background_task) {
         background_task->BackgroundThreadMain();

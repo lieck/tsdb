@@ -16,8 +16,13 @@ namespace LindormContest {
             }
         }
 
-        auto GenerateTable(DBOptions *options) -> Table {
-            return Table("test", schema_, options);
+        ~TestTableOperator() {
+            delete table_;
+        }
+
+        auto GenerateTable(DBOptions *options) -> Table* {
+            table_ = new Table("test", schema_, options);
+            return table_;
         }
 
         auto GenerateWriteRequest(int64_t start_key, int limit, timestamp_t timestamp) -> WriteRequest {
@@ -109,10 +114,16 @@ namespace LindormContest {
             }
         }
 
+        void CheckFileNumber(size_t level, int file_number) {
+            auto meta = table_->TestGetTableMetaData();
+            ASSERT_EQ(meta.GetFileMetaData(level).size(), file_number);
+        }
+
     private:
         std::string name_;
         TestSchemaType type_;
         Schema schema_;
+        Table *table_;
 
         std::map<Vin, std::unordered_map<timestamp_t, Row>> data_{};
     };

@@ -21,20 +21,22 @@ void BackgroundTask::Schedule(void (*function)(void *), void *arg) {
 }
 
 void BackgroundTask::BackgroundThreadMain() {
+    std::unique_lock<std::mutex> lock(mutex_);
     while(true) {
-        std::unique_lock<std::mutex> lock(mutex_);
-
         while (background_work_queue_.empty()) {
+            cv_.notify_all();
             cv_.wait(lock);
         }
 
-        ASSERT(background_work_queue_.empty(), "background_work_queue_ is empty");
+        ASSERT(!background_work_queue_.empty(), "background_work_queue_ is empty");
         auto background_work_function = background_work_queue_.front().function_;
         void* background_work_arg = background_work_queue_.front().arg_;
-        background_work_queue_.pop();
         lock.unlock();
 
         background_work_function(background_work_arg);
+
+        lock.lock();
+        background_work_queue_.pop();
     };
 }
 
