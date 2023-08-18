@@ -1,6 +1,4 @@
 #pragma once
-
-#include "common/namespace.h"
 #include "db/table.h"
 
 namespace LindormContest {

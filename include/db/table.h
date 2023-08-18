@@ -8,7 +8,6 @@
 #include "common/macros.h"
 #include "TSDBEngine.hpp"
 #include "mem_table/mem_table.h"
-#include "common/namespace.h"
 #include "format.h"
 #include "table_meta_data.h"
 #include "background.h"
@@ -35,14 +34,14 @@ private:
     };
 
     struct QueryRequest {
-        std::set<Vin> vin_;
+        std::map<Vin, Row> vin_;
         std::set<std::string> columns_;
         std::vector<Row> *result_;
 
         QueryRequest(const std::vector<Vin> &vins, std::set<std::string> columns, std::vector<Row> *result)
          : columns_(std::move(columns)), result_(result) {
             for(auto &vin : vins) {
-                vin_.insert(vin);
+                vin_[vin] = Row();
             }
         }
     };
@@ -114,4 +113,4 @@ private:
     std::queue<const WriteRequest*> write_queue_;   // 写请求队列
 };
 
-} // namespace ljdb
+}  // namespace LindormContest

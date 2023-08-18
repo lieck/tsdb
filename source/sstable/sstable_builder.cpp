@@ -73,16 +73,19 @@ auto SStableBuilder::Builder() -> std::unique_ptr<SSTable> {
 
     auto index_block = builder.Builder();
     DiskManager::WriteBlock(file_, index_block->GetData(), index_block->GetDataSize());
-    offset_ += index_block->GetDataSize();
+    ASSERT(index_block->GetDataSize() > 0, "index block size must be greater than 0");
 
     // write meta block offset
     CodingUtil::PutUint32(buffer, offset_);
+    offset_ += index_block->GetDataSize();
+
     DiskManager::WriteBlock(file_, buffer, CodingUtil::LENGTH_SIZE);
     offset_ += CodingUtil::LENGTH_SIZE;
 
     file_.flush();
     file_.close();
 
+    estimated_size_ = 0;
     return std::make_unique<SSTable>(file_number_, offset_, std::move(index_block));
 }
 

@@ -58,5 +58,5 @@ private:
     std::unique_ptr<Block> index_block_{nullptr};
 };
 
-}  // namespace ljdb
+}  // namespace LindormContest
 

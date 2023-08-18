@@ -88,4 +88,4 @@ auto NewTwoLevelIterator(std::unique_ptr<Iterator> index_iter, BlockFunction blo
     return std::make_unique<TwoLevelIterator>(std::move(index_iter), block_function, arg);
 }
 
-} // namespace ljdb
+}  // namespace LindormContest

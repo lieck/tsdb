@@ -43,3 +43,6 @@ include_directories(BEFORE source) # This is needed for gtest.
 add_subdirectory(source)
 add_subdirectory(tests)
 add_subdirectory(example)
+
+
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=[sanitizer_name] [additional_options] [-g] [-OX]")

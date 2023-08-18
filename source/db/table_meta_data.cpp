@@ -138,4 +138,4 @@ void TableMetaData::ClearCompaction() {
 }
 
 
-} // namespace ljdb
+}  // namespace LindormContest

@@ -1,6 +1,5 @@
 #pragma once
 
-#include "common/namespace.h"
 #include "util/coding.h"
 
 
@@ -47,8 +46,8 @@ struct InternalKey {
 
     auto Encode() const -> std::string {
         std::string s;
-        s.reserve(LindormContest::VIN_LENGTH + 8);
         s.append(vin_.vin);
+        s.resize(LindormContest::VIN_LENGTH + 8);
         CodingUtil::PutInt64(const_cast<char *>(s.data() + LindormContest::VIN_LENGTH), timestamp_);
         return s;
     }

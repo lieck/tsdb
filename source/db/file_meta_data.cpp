@@ -18,18 +18,22 @@ FileMetaData::FileMetaData(file_number_t file_number, InternalKey smallest, Inte
 
 FileMetaData::FileMetaData(const std::string &src) {
     file_number_ = CodingUtil::DecodeFixed64(src.data());
-    file_size_ = CodingUtil::DecodeFixed64(src.data() + 8);
-    smallest_ = InternalKey(src.substr(16));
-    largest_ = InternalKey(src.substr(16 + INTERNAL_KEY_SIZE));
+    file_size_ = CodingUtil::DecodeFixed64(src.data() + 4);
+    smallest_ = InternalKey(src.substr(12, INTERNAL_KEY_SIZE));
+    largest_ = InternalKey(src.substr(12 + INTERNAL_KEY_SIZE, INTERNAL_KEY_SIZE));
     allowed_seeks_ = static_cast<uint32_t>(file_size_ / 16384U);
 }
 
 void FileMetaData::EncodeTo(std::string *dst) const {
-    dst->append(reinterpret_cast<const char *>(&file_number_), sizeof(file_number_));
-    dst->append(reinterpret_cast<const char *>(&file_size_), sizeof(file_size_));
+    char buffer[INTERNAL_KEY_SIZE];
+    CodingUtil::EncodeValue(buffer, file_number_);
+    dst->append(buffer, sizeof(file_number_));
+
+    CodingUtil::EncodeValue(buffer, file_size_);
+    dst->append(buffer, sizeof(file_size_));
+
     dst->append(smallest_.Encode());
     dst->append(largest_.Encode());
-    // dst->append(reinterpret_cast<const char *>(&allowed_seeks_), sizeof(allowed_seeks_));
 }
 
 class FileMetaDataIterator : public Iterator {
@@ -53,7 +57,9 @@ public:
 
     auto GetValue() -> std::string override {
         ASSERT(index_ < files_.size(), "index_ is out of range");
-        return files_[index_]->GetLargest().Encode();
+        std::string ret;
+        files_[index_]->EncodeTo(&ret);
+        return ret;
     }
 
     auto Valid() -> bool override {

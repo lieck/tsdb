@@ -26,23 +26,27 @@ auto Table::Upsert(const WriteRequest &wReq) -> int {
 
     // 若其他线程正在写入, 则等待
     write_queue_.push(&wReq);
-    while(!write_queue_.empty() && write_queue_.front() != &wReq) {
+    while(write_queue_.front() != &wReq) {
         cv_.wait(lock);
     }
-    write_queue_.pop();
     if(mem_ == nullptr) {
         mem_ = std::make_shared<MemTable>();
     }
     lock.unlock();
+
+    mem_->Lock();
 
     // 将数据写入 memtable
     for(auto &row : wReq.rows) {
         // 判断 mem 是否写满
         if(mem_->ApproximateSize() >= K_MEM_TABLE_SIZE_THRESHOLD) {
             lock.lock();
+            mem_->Unlock();
+
             LOG_INFO("memtable is full, flush to immtable");
             imm_.push_back(mem_);
             mem_ = std::make_shared<MemTable>();
+            mem_->Lock();
 
             MaybeScheduleCompaction();
             lock.unlock();
@@ -51,6 +55,11 @@ auto Table::Upsert(const WriteRequest &wReq) -> int {
         mem_->Insert(row);
     }
 
+    mem_->Unlock();
+
+    lock.lock();
+    write_queue_.pop();
+    cv_.notify_all();
     return 0;
 }
 
@@ -87,6 +96,11 @@ auto Table::ExecuteLatestQuery(const LatestQueryRequest &pReadReq, std::vector<R
         }
     }
 
+    for(auto &row : query.vin_) {
+        if(row.second.timestamp != 0) {
+            pReadRes.push_back(row.second);
+        }
+    }
 
     return 0;
 }
@@ -135,9 +149,10 @@ auto Table::MemTableQuery(Table::QueryRequest &req, const std::shared_ptr<MemTab
             Row row = CodingUtil::DecodeRow(iter->GetValue().data(), schema_, &req.columns_);
             row.vin = iter->GetKey().vin_;
             row.timestamp = iter->GetKey().timestamp_;
-            req.result_->push_back(row);
 
-            req.vin_.erase(iter->GetKey().vin_);
+            if(req.vin_[row.vin].timestamp < row.timestamp) {
+                req.vin_[row.vin] = row;
+            }
         }
         iter->Next();
     }
@@ -145,7 +160,7 @@ auto Table::MemTableQuery(Table::QueryRequest &req, const std::shared_ptr<MemTab
 
 auto Table::MemTableRangeQuery(Table::RangeQueryRequest &req, const std::shared_ptr<MemTable>& mem) -> void {
     auto iter = mem->NewIterator();
-    iter->Seek(InternalKey(*req.vin_, req.time_upper_bound_));
+    iter->Seek(InternalKey(*req.vin_, req.time_upper_bound_ - 1));
     while(iter->Valid()) {
         auto key = iter->GetKey();
         if(key.vin_ != *req.vin_ || key.timestamp_ < req.time_lower_bound_) {
@@ -178,19 +193,17 @@ auto Table::FileTableQuery(const FileMetaDataPtr& fileMetaData, Table::QueryRequ
             Row row = CodingUtil::DecodeRow(iter->GetValue().data(), schema_, &req.columns_);
             row.vin = iter->GetKey().vin_;
             row.timestamp = iter->GetKey().timestamp_;
-            req.result_->push_back(row);
 
-            req.vin_.erase(iter->GetKey().vin_);
+            if(req.vin_[row.vin].timestamp < row.timestamp) {
+                req.vin_[row.vin] = row;
+            }
         }
         iter->Next();
     }
 }
 
 void Table::FileTableRangeQuery(const FileMetaDataPtr& fileMetaData, Table::RangeQueryRequest &req) {
-    InternalKey internal_key(*req.vin_, req.time_upper_bound_);
-    if(fileMetaData->smallest_ > internal_key || fileMetaData->largest_ < internal_key) {
-        return;
-    }
+    InternalKey internal_key(*req.vin_, req.time_upper_bound_ - 1);
 
     auto iter = table_cache_->NewTableIterator(fileMetaData);
     iter->Seek(internal_key);
@@ -287,7 +300,7 @@ auto Table::BackgroundCompaction(std::unique_lock<std::mutex> &lock) -> void {
 auto Table::DoManualCompaction(CompactionTask *task) -> bool {
     LOG_DEBUG("DoManualCompaction level: %d", task->level_);
     if(task->input_files_[1].empty()) {
-        task->output_files_ = task->input_files_[1];
+        task->output_files_ = task->input_files_[0];
         LOG_DEBUG("DoManualCompaction level: %d, no need to compact", task->level_);
         return true;
     }
@@ -322,11 +335,11 @@ auto Table::DoManualCompaction(CompactionTask *task) -> bool {
     while(input_iter->Valid()) {
         if(builder == nullptr || builder->EstimatedSize() >= MAX_FILE_SIZE) {
             if(builder != nullptr) {
-                // TODO 将 SSTable 放入 TableCaz
+                // TODO 将 SSTable 放入 TableCache
                 auto sstable = builder->Builder();
 
                 file_meta_data->largest_ = largest;
-                file_meta_data->file_size_ = builder->EstimatedSize();
+                file_meta_data->file_size_ = sstable->GetFileSize();
                 task->output_files_.emplace_back(file_meta_data);
 
                 delete builder;
@@ -347,10 +360,10 @@ auto Table::DoManualCompaction(CompactionTask *task) -> bool {
     }
 
     if(builder != nullptr) {
-        builder->Builder();
+        auto sstable = builder->Builder();
 
         file_meta_data->largest_ = largest;
-        file_meta_data->file_size_ = builder->EstimatedSize();
+        file_meta_data->file_size_ = sstable->GetFileSize();
         task->output_files_.emplace_back(file_meta_data);
 
         delete builder;
@@ -381,7 +394,7 @@ auto Table::CompactMemTable(const std::shared_ptr<MemTable> &mem) -> FileMetaDat
     auto sstable = builder.Builder();
 
     auto file_meta_data = std::make_shared<FileMetaData>(file_number, start_key, end_key, sstable->GetFileSize());
-    table_cache_->AddSSTable(std::move(sstable));
+    // table_cache_->AddSSTable(std::move(sstable));
 
     return file_meta_data;
 }

@@ -20,6 +20,7 @@ SSTable::SSTable(file_number_t file_number, uint64_t file_size, Cache<Block> *ca
     // read sstable index block
     auto index_offset = CodingUtil::DecodeUint32(footer_buffer);
     auto index_block_size = footer_offset - index_offset;
+    ASSERT(index_block_size > 0, "index block size must be positive");
 
     char *index_buffer = new char[index_block_size];
     DiskManager::ReadBlock(file_number_, index_buffer, index_block_size, index_offset);
@@ -71,4 +72,4 @@ auto SSTable::GetBlockCacheID(block_id_t block_id) -> cache_id_t {
 }
 
 
-}  // namespace ljdb
+}  // namespace LindormContest
