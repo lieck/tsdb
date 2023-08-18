@@ -80,9 +80,11 @@ auto Table::ExecuteLatestQuery(const LatestQueryRequest &pReadReq, std::vector<R
     lock.unlock();
 
     // mem 需要加锁
-    mem_table->Lock();
-    MemTableQuery(query, mem_table);
-    mem_table->Unlock();
+    if(mem_table != nullptr) {
+        mem_table->Lock();
+        MemTableQuery(query, mem_table);
+        mem_table->Unlock();
+    }
 
     // 搜索 imm
     for(auto &imm : imm_table) {
@@ -113,7 +115,7 @@ auto Table::ExecuteTimeRangeQuery(const TimeRangeQueryRequest &trReadReq, std::v
     std::vector<std::shared_ptr<MemTable>> imm_table;
     auto mem_table = mem_;
     for(auto iter = imm_.rbegin(); iter != imm_.rend(); ++iter) {
-        imm_table.push_back(mem_);
+        imm_table.push_back(*iter);
     }
 
     std::vector<std::shared_ptr<FileMetaData>> sstable[K_NUM_LEVELS];
@@ -123,9 +125,11 @@ auto Table::ExecuteTimeRangeQuery(const TimeRangeQueryRequest &trReadReq, std::v
     lock.unlock();
 
     // mem 需要加锁
-    mem_table->Lock();
-    MemTableRangeQuery(query, mem_table);
-    mem_table->Unlock();
+    if(mem_table != nullptr) {
+        mem_table->Lock();
+        MemTableRangeQuery(query, mem_table);
+        mem_table->Unlock();
+    }
 
     for(auto &imm : imm_table) {
         MemTableRangeQuery(query, imm);
@@ -203,10 +207,8 @@ auto Table::FileTableQuery(const FileMetaDataPtr& fileMetaData, Table::QueryRequ
 }
 
 void Table::FileTableRangeQuery(const FileMetaDataPtr& fileMetaData, Table::RangeQueryRequest &req) {
-    InternalKey internal_key(*req.vin_, req.time_upper_bound_ - 1);
-
     auto iter = table_cache_->NewTableIterator(fileMetaData);
-    iter->Seek(internal_key);
+    iter->Seek(InternalKey(*req.vin_, req.time_upper_bound_ - 1));
     while(iter->Valid()) {
         auto key = iter->GetKey();
         if(key.vin_ != *req.vin_ || key.timestamp_ < req.time_lower_bound_) {
@@ -392,6 +394,30 @@ auto Table::CompactMemTable(const std::shared_ptr<MemTable> &mem) -> FileMetaDat
     }
 
     auto sstable = builder.Builder();
+
+    {
+        // check
+        auto file_iter = sstable->NewIterator();
+        iter->SeekToFirst();
+        auto mem_iter = mem->NewIterator();
+        mem_iter->SeekToFirst();
+        while(file_iter->Valid() && mem_iter->Valid()) {
+            if(file_iter->GetKey() != mem_iter->GetKey()) {
+                LOG_ERROR("Compact MemTable table error");
+                exit(1);
+            }
+            if(file_iter->GetValue() != mem_iter->GetValue()) {
+                LOG_ERROR("Compact MemTable table error");
+                exit(1);
+            }
+            file_iter->Next();
+            mem_iter->Next();
+        }
+        if(file_iter->Valid() || mem_iter->Valid()) {
+            LOG_ERROR("Compact MemTable table error");
+            exit(1);
+        }
+    }
 
     auto file_meta_data = std::make_shared<FileMetaData>(file_number, start_key, end_key, sstable->GetFileSize());
     // table_cache_->AddSSTable(std::move(sstable));

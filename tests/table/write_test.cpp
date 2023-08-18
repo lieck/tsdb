@@ -133,4 +133,29 @@ TEST(WriteTest, RangeQuery) {
     options->bg_task_->WaitForEmptyQueue();
 }
 
+TEST(WriteTest, RangeQuery2) {
+    LOG_INFO("memtable write buffer size = %d", K_MEM_TABLE_SIZE_THRESHOLD);
+
+    auto options = NewDBOptions();
+
+    TestTableOperator test("test", TestSchemaType::Basic);
+    auto table = test.GenerateTable(options);
+
+    for(int i = 0; i <= 100; i++) {
+        auto start = rand() % 1000;
+        auto wr = test.GenerateWriteRequest(0, 10, start);
+        ASSERT_EQ(table->Upsert(wr), 0) << "Upsert failed";
+    }
+
+    options->bg_task_->WaitForEmptyQueue();
+
+    auto qr = test.GenerateTimeRangeQueryRequest(0, 200, 400);
+    std::vector<Row> results;
+    ASSERT_EQ(table->ExecuteTimeRangeQuery(qr, results), 0) << "ExecuteLatestQuery failed";
+    test.CheckRangeQuery(results, qr, false);
+
+    options->bg_task_->WaitForEmptyQueue();
+}
+
+
 }  // namespace LindormContest

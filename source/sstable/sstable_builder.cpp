@@ -12,7 +12,6 @@ auto SStableBuilder::Add(const InternalKey &key, std::string &value) -> void {
 
         // create a new block
         block_builder_.Init();
-        first_key_ = key;
         if(!block_builder_.Add(key, value)) {
             throw Exception("SStableBuilder failed to add");
         }
@@ -20,6 +19,7 @@ auto SStableBuilder::Add(const InternalKey &key, std::string &value) -> void {
         estimated_size_ += 8 + INTERNAL_KEY_SIZE;
     }
 
+    end_key_ = key;
     estimated_size_ += INTERNAL_KEY_SIZE + value.size() + 8;
 }
 
@@ -37,7 +37,7 @@ auto SStableBuilder::FlushBlock() -> void {
         auto block_id = offset_;
 
         // update block meta
-        block_meta_.emplace_back(offset_, block->GetDataSize(), first_key_);
+        block_meta_.emplace_back(offset_, block->GetDataSize(), end_key_);
         offset_ += block->GetDataSize();
 
         // block cache
@@ -93,4 +93,4 @@ auto SStableBuilder::GetBlockCacheID(block_id_t block_id) -> cache_id_t {
     return static_cast<cache_id_t>(file_number_) << 32 | block_id;
 }
 
-}  // namespace ljdb
+}  // namespace LindormContest

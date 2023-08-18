@@ -66,7 +66,7 @@ private:
     Cache<Block> *block_cache_;
 
     BlockBuilder block_builder_;    // 用于构建 block
-    InternalKey first_key_;         // 当前构建 block 的第一个 key
+    InternalKey end_key_;         // 当前构建 block 的最后一个 key
 
     std::vector<BlockMeta> block_meta_{};
 

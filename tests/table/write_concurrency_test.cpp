@@ -36,18 +36,18 @@ void RunTest(int write_thread_count, int read_thread_count, int write_count, boo
         read_threads.emplace_back([&]() {
             for(int i = 0; i < write_count; i++) {
                 int64_t start = rand() % 1000;
-//                if(range_query && (i % 3) == 0) {
+                if(range_query && (i % 3) == 0) {
                     int64_t time_range = rand() % 1000;
                     auto qr = test.GenerateTimeRangeQueryRequest(start, time_range, time_range + 100);
                     std::vector<Row> results;
                     ASSERT_EQ(table->ExecuteTimeRangeQuery(qr, results), 0) << "ExecuteRangeQuery failed";
                     test.CheckRangeQuery(results, qr, false);
-//                } else {
-//                    auto qr = test.GenerateLatestQueryRequest(start, 100);
-//                    std::vector<Row> results;
-//                    ASSERT_EQ(table->ExecuteLatestQuery(qr, results), 0) << "ExecuteLatestQuery failed";
-//                    test.CheckLastQuery(results, qr, false);
-//                }
+                } else {
+                    auto qr = test.GenerateLatestQueryRequest(start, 100);
+                    std::vector<Row> results;
+                    ASSERT_EQ(table->ExecuteLatestQuery(qr, results), 0) << "ExecuteLatestQuery failed";
+                    test.CheckLastQuery(results, qr, false);
+                }
             }
         });
     }
@@ -81,7 +81,7 @@ TEST(WriteConcurrencTest, NormalPlus) {
 }
 
 TEST(WriteConcurrencTest, NormalPlusAdd) {
-    RunTest(6, 6, 50, true);
+    RunTest(4, 6, 50, true);
 }
 
 } // namespace LindormContest

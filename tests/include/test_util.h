@@ -34,12 +34,7 @@ auto GenerateVin(int64_t key) -> Vin {
 auto GenerateKey(int32_t key) -> InternalKey {
     InternalKey ret;
     ret.timestamp_ = 0;
-    for(char & i : ret.vin_.vin) {
-        i = 'x';
-    }
-
-    auto k = "key-" + std::to_string(key);
-    k.copy(ret.vin_.vin, k.size());
+    ret.vin_ = GenerateVin(key);
     return ret;
 }
 
