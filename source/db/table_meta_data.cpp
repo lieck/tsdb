@@ -5,9 +5,6 @@
 
 namespace LindormContest {
 
-
-
-
 auto TableMetaData::TotalFileSize(int level) -> uint64_t {
     uint64_t total_file_size = 0;
     for(auto& file : files_[level]) {
@@ -122,6 +119,8 @@ void TableMetaData::AddFileMetaData(int32_t level, const std::vector<FileMetaDat
 
 void TableMetaData::RemoveFileMetaData(int32_t level, const std::vector<FileMetaDataPtr> &file) {
     for(auto &f : file) {
+        // TODO 需要删除文件
+
         auto it = std::find(files_[level].begin(), files_[level].end(), f);
         if(it != files_[level].end()) {
             files_[level].erase(it);

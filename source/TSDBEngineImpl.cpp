@@ -7,6 +7,7 @@
 
 #include "TSDBEngineImpl.h"
 #include "common/exception.h"
+#include "common/logger.h"
 
 namespace LindormContest {
 
@@ -21,6 +22,11 @@ namespace LindormContest {
     }
 
     auto TSDBEngineImpl::connect() -> int {
+        if(shutdown_.load(std::memory_order_acquire)) {
+            LOG_INFO("connect() called after shutdown");
+            return -1;
+        }
+
         std::scoped_lock<std::mutex> lock(mutex_);
         if(db_option_ == nullptr) {
             db_option_ = NewDBOptions();
@@ -56,6 +62,10 @@ namespace LindormContest {
     }
 
     auto TSDBEngineImpl::createTable(const std::string &tableName, const Schema &schema) -> int {
+        if(shutdown_.load(std::memory_order_acquire)) {
+            return -1;
+        }
+
         std::unique_lock<std::mutex> lock(mutex_);
         if(tables_.count(tableName) == 1) {
             return -1;
@@ -70,9 +80,8 @@ namespace LindormContest {
             table.second->Shutdown();
         }
 
-        // TODO 等待关闭
-
-
+        // 等待后台任务退出
+        db_option_->bg_task_->WaitForEmptyQueue();
 
         // 写入元数据
         try {
@@ -88,6 +97,10 @@ namespace LindormContest {
     }
 
     auto TSDBEngineImpl::upsert(const WriteRequest &writeRequest) -> int {
+        if(shutdown_.load(std::memory_order_acquire)) {
+            return -1;
+        }
+
         std::unique_lock<std::mutex> lock(mutex_);
         auto table = tables_.find(writeRequest.tableName);
         if(table == tables_.end()) {
@@ -99,6 +112,10 @@ namespace LindormContest {
     }
 
     auto TSDBEngineImpl::executeLatestQuery(const LatestQueryRequest &pReadReq, std::vector<Row> &pReadRes) -> int {
+        if(shutdown_.load(std::memory_order_acquire)) {
+            return -1;
+        }
+
         std::unique_lock<std::mutex> lock(mutex_);
         auto table = tables_.find(pReadReq.tableName);
         if(table == tables_.end()) {
@@ -110,6 +127,10 @@ namespace LindormContest {
     }
 
     auto TSDBEngineImpl::executeTimeRangeQuery(const TimeRangeQueryRequest &trReadReq, std::vector<Row> &trReadRes) -> int {
+        if(shutdown_.load(std::memory_order_acquire)) {
+            return -1;
+        }
+
         std::unique_lock<std::mutex> lock(mutex_);
         auto table = tables_.find(trReadReq.tableName);
         if(table == tables_.end()) {

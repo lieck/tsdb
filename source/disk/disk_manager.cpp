@@ -67,5 +67,10 @@ void DiskManager::ReadBlock(file_number_t file_number, char *data, uint32_t size
     ReadBlock(file, data, size, offset);
 }
 
+auto DiskManager::RemoveSSTableFile(file_number_t file_number) -> bool {
+    std::string file_name = GET_SSTABLE_NAME(file_number);
+    return RemoveFile(file_name);
+}
 
-}; // namespace ljdb
+
+}  // namespace LindormContest

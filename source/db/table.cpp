@@ -13,7 +13,7 @@
 
 namespace LindormContest {
 
-    const constexpr int TABLE_META_DATA_MAGIC = 0x02341678;
+const std::string MANIFEST_FILE_MAGIC = "LJDB";
 
 Table::Table(std::string tableName, Schema schema, DBOptions *options) :
 table_name_(std::move(tableName)), schema_(std::move(schema)), options_(options), table_cache_(options->table_cache_) {
@@ -29,6 +29,13 @@ auto Table::Upsert(const WriteRequest &wReq) -> int {
     while(write_queue_.front() != &wReq) {
         cv_.wait(lock);
     }
+
+    if(is_shutting_down_.load(std::memory_order_acquire)) {
+        cv_.notify_all();
+        lock.unlock();
+        return -1;
+    }
+
     if(mem_ == nullptr) {
         mem_ = std::make_shared<MemTable>();
     }
@@ -229,7 +236,7 @@ void Table::FileTableRangeQuery(const FileMetaDataPtr& fileMetaData, Table::Rang
 }
 
 void Table::MaybeScheduleCompaction() {
-    if(!imm_.empty() || table_meta_data_.ExistCompactionTask()) {
+    if(!imm_.empty() || (table_meta_data_.ExistCompactionTask() && !is_shutting_down_.load(std::memory_order_acquire))) {
         options_->bg_task_->Schedule(&Table::BGWork, this);
     }
 }
@@ -270,6 +277,11 @@ auto Table::BackgroundCompaction(std::unique_lock<std::mutex> &lock) -> void {
         imm_.erase(imm_.begin());
         table_meta_data_.AddFileMetaData(0, {file_meta});
         LOG_DEBUG("Minor Compaction Done");
+        return;
+    }
+
+    // 退出时只允许压缩 memtable
+    if(is_shutting_down_.load(std::memory_order_acquire)) {
         return;
     }
 
@@ -427,13 +439,27 @@ auto Table::CompactMemTable(const std::shared_ptr<MemTable> &mem) -> FileMetaDat
 
 auto Table::Shutdown() -> int {
     is_shutting_down_.store(true, std::memory_order_release);
+
+    std::unique_lock<std::mutex> lock(mutex_);
+
+    // 等待写入队列为空
+    while(!write_queue_.empty()) {
+        cv_.wait(lock);
+    }
+
+    if(mem_ != nullptr) {
+        imm_.push_back(mem_);
+        mem_ = nullptr;
+        MaybeScheduleCompaction();
+    }
+
     return 0;
 }
 
     auto Table::WriteMetaData(std::ofstream &file) const -> void {
         char buffer[FILE_META_DATA_SIZE];
 
-        file << TABLE_META_DATA_MAGIC;
+        file << MANIFEST_FILE_MAGIC;
 
         // table name
         CodingUtil::PutUint32(buffer, table_name_.size());
@@ -443,6 +469,7 @@ auto Table::Shutdown() -> int {
         // schema
         std::string schema_str = CodingUtil::SchemaToBytes(schema_);
         CodingUtil::PutUint32(buffer, schema_str.size());
+        file.write(buffer, CodingUtil::LENGTH_SIZE);
         file.write(schema_str.data(), static_cast<int64_t>(schema_str.size()));
 
         // file number
@@ -453,23 +480,24 @@ auto Table::Shutdown() -> int {
             for(auto &file_meta_data : level) {
                 std::string str;
                 file_meta_data->EncodeTo(&str);
-                file.write(buffer, FILE_META_DATA_SIZE);
+                file.write(str.data(), FILE_META_DATA_SIZE);
             }
         }
     }
 
     auto Table::ReadMetaData(std::ifstream &file) -> void {
         char buffer[FILE_META_DATA_SIZE];
-        uint32_t magic;
-        file >> magic;
-        if(magic != TABLE_META_DATA_MAGIC) {
+        std::string magic;
+        magic.resize(MANIFEST_FILE_MAGIC.size());
+        file.read(magic.data(), MANIFEST_FILE_MAGIC.size());
+
+        if(magic != MANIFEST_FILE_MAGIC) {
             throw std::runtime_error("table meta data magic error");
         }
 
         // table name
         uint32_t table_name_size;
         file.read(buffer, CodingUtil::LENGTH_SIZE);
-
         table_name_size = CodingUtil::DecodeUint32(buffer);
         if(FILE_META_DATA_SIZE >= table_name_size) {
             std::string name(table_name_size, ' ');
@@ -495,8 +523,13 @@ auto Table::Shutdown() -> int {
             file.read(buffer, CodingUtil::LENGTH_SIZE);
             file_size = CodingUtil::DecodeUint32(buffer);
             for(uint32_t j = 0; j < file_size; j++) {
-                file.read(buffer, FILE_META_DATA_SIZE);
-                i.emplace_back(std::make_shared<FileMetaData>(buffer));
+                // file.read(buffer, FILE_META_DATA_SIZE);
+
+                std::string temp;
+                temp.resize(FILE_META_DATA_SIZE);
+                file.read(temp.data(), FILE_META_DATA_SIZE);
+
+                i.emplace_back(std::make_shared<FileMetaData>(temp));
             }
         }
     }

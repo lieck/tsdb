@@ -16,6 +16,8 @@ public:
 
     static auto OpenFile(const std::string& filename) -> std::ifstream;
 
+    static auto RemoveSSTableFile(file_number_t file_number) -> bool;
+
     static auto RemoveFile(const std::string& filename) -> bool;
 
     static void ReadBlock(std::ifstream& file, char* data, uint32_t size, uint32_t offset);

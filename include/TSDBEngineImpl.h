@@ -42,6 +42,8 @@ public:
 private:
     DBOptions *db_option_{};
 
+    std::atomic_bool shutdown_;
+
     std::mutex mutex_;
     std::unordered_map<std::string, Table*> tables_;
 }; // End class TSDBEngineImpl.

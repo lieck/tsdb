@@ -62,7 +62,7 @@ public:
     // 返回 level 层的文件总大小
     auto TotalFileSize(int level) -> uint64_t;
 
-    // 是否存在压缩计划
+    // 是否存在 sstable file 的压缩计划
     auto ExistCompactionTask() -> bool {
         return size_compaction_score_ >= 1 || seek_compaction_level_ != -1;
     }
