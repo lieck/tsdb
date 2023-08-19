@@ -1,5 +1,7 @@
 #pragma once
 #include "db/table.h"
+#include "TSDBEngineImpl.h"
+#include <filesystem>
 
 namespace LindormContest {
 
@@ -46,7 +48,44 @@ auto GenerateRow(int64_t key) -> Row {
     return row;
 }
 
+void CreateDirectory(const std::string &directory) {
+    namespace fs = std::filesystem;
+    try {
+        if (fs::create_directory(directory)) {
+            std::cout << "Directory created successfully." << std::endl;
+        } else {
+            std::cout << "Failed to create directory." << std::endl;
+        }
+    } catch (const std::exception& ex) {
+        std::cerr << "An error occurred: " << ex.what() << std::endl;
+    }
+}
 
+void RemoveDirectory(const std::string& directory) {
+    namespace fs = std::filesystem;
+    try {
+        fs::remove_all(directory);
+        std::cout << "Directory and its contents have been deleted." << std::endl;
+    } catch (const std::exception& ex) {
+        std::cerr << "An error occurred: " << ex.what() << std::endl;
+    }
+}
+
+auto DirectoryExists(const std::string& directory) -> bool {
+    namespace fs = std::filesystem;
+    return fs::exists(directory) && fs::is_directory(directory);
+}
+
+auto CreateTestTSDBEngine() -> TSDBEngine* {
+    std::string test_directory = "./db_test";
+    if(DirectoryExists(test_directory)) {
+        RemoveDirectory(test_directory);
+    }
+    CreateDirectory(test_directory);
+
+    auto engine = new TSDBEngineImpl(test_directory);
+    return engine;
+}
 
 
 

@@ -23,7 +23,7 @@ private:
     };
 
 public:
-    explicit TableCache(size_t max_file_number) : cache_(max_file_number) {}
+    explicit TableCache(size_t max_file_number, Cache<Block> *block_cache = nullptr) : cache_(max_file_number), block_cache_(block_cache) {}
 
     void AddSSTable(std::unique_ptr<SSTable> sstable);
 
@@ -32,6 +32,8 @@ public:
 
 private:
     auto FindTable(const FileMetaDataPtr& file_meta_data) -> SSTable*;
+
+    Cache<Block> *block_cache_;
 
     std::mutex mutex_;
     Cache<SSTable> cache_;

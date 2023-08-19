@@ -111,7 +111,6 @@ namespace LindormContest {
     }
 
     auto TSDBEngineImpl::upsert(const WriteRequest &writeRequest) -> int {
-        LOG_INFO("db engine upsert");
         if(shutdown_.load(std::memory_order_acquire)) {
             return -1;
         }
@@ -127,7 +126,6 @@ namespace LindormContest {
     }
 
     auto TSDBEngineImpl::executeLatestQuery(const LatestQueryRequest &pReadReq, std::vector<Row> &pReadRes) -> int {
-        LOG_INFO("Executing latest query");
         if(shutdown_.load(std::memory_order_acquire)) {
             return -1;
         }
@@ -143,7 +141,6 @@ namespace LindormContest {
     }
 
     auto TSDBEngineImpl::executeTimeRangeQuery(const TimeRangeQueryRequest &trReadReq, std::vector<Row> &trReadRes) -> int {
-        LOG_INFO("Executing time range query");
         if(shutdown_.load(std::memory_order_acquire)) {
             return -1;
         }

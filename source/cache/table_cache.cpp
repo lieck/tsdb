@@ -25,8 +25,8 @@ auto TableCache::FindTable(const FileMetaDataPtr& file_meta_data) -> SSTable * {
         return handle->value_.get();
     }
 
-    auto sstable = new SSTable(file_meta_data->file_number_, file_meta_data->file_size_);
-    // cache_.Insert(file_meta_data->file_number_, std::unique_ptr<SSTable>(sstable), 1);
+    auto sstable = new SSTable(file_meta_data->file_number_, file_meta_data->file_size_, block_cache_);
+    cache_.Insert(file_meta_data->file_number_, std::unique_ptr<SSTable>(sstable), 1);
     return sstable;
 }
 
