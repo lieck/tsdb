@@ -42,7 +42,7 @@ public:
 private:
     DBOptions *db_option_{};
 
-    std::atomic_bool shutdown_;
+    std::atomic_bool shutdown_{false};
 
     std::mutex mutex_;
     std::unordered_map<std::string, Table*> tables_;

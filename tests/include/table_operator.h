@@ -212,7 +212,7 @@ namespace LindormContest {
         std::string name_;
         TestSchemaType type_;
         Schema schema_;
-        Table *table_;
+        Table *table_{nullptr};
 
         std::mutex mutex_;
 

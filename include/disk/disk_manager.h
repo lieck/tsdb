@@ -7,7 +7,6 @@ namespace LindormContest {
 
 class DiskManager {
 public:
-
     static auto OpenSSTableFile(file_number_t file_number) -> std::ifstream;
 
     static auto CreateSSTableFile(file_number_t file_number) -> std::ofstream;

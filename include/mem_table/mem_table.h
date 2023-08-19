@@ -2,7 +2,6 @@
 
 #include <mutex>
 #include "common/macros.h"
-#include "db/format.cpp"
 #include "sklip_list.h"
 #include "common/iterator.h"
 
