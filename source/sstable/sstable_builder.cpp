@@ -86,7 +86,7 @@ auto SStableBuilder::Builder() -> std::unique_ptr<SSTable> {
     file_.close();
 
     estimated_size_ = 0;
-    return std::make_unique<SSTable>(file_number_, offset_, std::move(index_block));
+    return std::make_unique<SSTable>(file_number_, offset_, std::move(index_block), block_cache_);
 }
 
 auto SStableBuilder::GetBlockCacheID(block_id_t block_id) -> cache_id_t {

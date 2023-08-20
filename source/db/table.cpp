@@ -178,6 +178,11 @@ auto Table::MemTableRangeQuery(Table::RangeQueryRequest &req, const std::shared_
             break;
         }
 
+        if(key.timestamp_ < req.time_lower_bound_ || key.timestamp_ > req.time_upper_bound_) {
+            iter->Next();
+            continue;
+        }
+
         if(req.time_set_.count(key.timestamp_) == 0) {
             req.time_set_.insert(key.timestamp_);
 
@@ -220,6 +225,11 @@ void Table::FileTableRangeQuery(const FileMetaDataPtr& fileMetaData, Table::Rang
         auto key = iter->GetKey();
         if(key.vin_ != *req.vin_ || key.timestamp_ < req.time_lower_bound_) {
             break;
+        }
+
+        if(key.timestamp_ < req.time_lower_bound_ || key.timestamp_ > req.time_upper_bound_) {
+            iter->Next();
+            continue;
         }
 
         if(req.time_set_.count(key.timestamp_) == 0) {
@@ -313,6 +323,7 @@ auto Table::BackgroundCompaction(std::unique_lock<std::mutex> &lock) -> void {
 
 auto Table::DoManualCompaction(CompactionTask *task) -> bool {
     LOG_DEBUG("DoManualCompaction level: %d", task->level_);
+
     if(task->input_files_[1].empty()) {
         task->output_files_ = task->input_files_[0];
         LOG_DEBUG("DoManualCompaction level: %d, no need to compact", task->level_);
@@ -326,8 +337,7 @@ auto Table::DoManualCompaction(CompactionTask *task) -> bool {
         if(task->level_ == 0 && i == 0) {
             std::vector<std::unique_ptr<Iterator>> iters;
             for(auto &file : task->input_files_[i]) {
-                auto iter = table_cache_->NewTableIterator(file);
-                iters.emplace_back(std::move(iter));
+                iters.emplace_back(table_cache_->NewTableIterator(file));
             }
             input_iters[0] = NewMergingIterator(std::move(iters));
         } else {
@@ -349,7 +359,7 @@ auto Table::DoManualCompaction(CompactionTask *task) -> bool {
     while(input_iter->Valid()) {
         if(builder == nullptr || builder->EstimatedSize() >= MAX_FILE_SIZE) {
             if(builder != nullptr) {
-                // TODO 将 SSTable 放入 TableCache
+                // TODO(lieck): 灏� SSTable 鏀惧叆 TableCache
                 auto sstable = builder->Builder();
 
                 file_meta_data->largest_ = largest;

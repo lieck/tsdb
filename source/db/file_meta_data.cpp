@@ -1,6 +1,7 @@
 
 
 #include <utility>
+#include <algorithm>
 #include "cache/table_cache.h"
 #include "db/file_meta_data.h"
 
@@ -38,7 +39,11 @@ void FileMetaData::EncodeTo(std::string *dst) const {
 
 class FileMetaDataIterator : public Iterator {
 public:
-    explicit FileMetaDataIterator(std::vector<std::shared_ptr<FileMetaData>> files) : files_(std::move(files)) {}
+    explicit FileMetaDataIterator(std::vector<std::shared_ptr<FileMetaData>> files) : files_(std::move(files)) {
+        std::sort(files_.begin(), files_.end(), [](const auto &a, const auto &b) {
+            return a->GetSmallest() < b->GetSmallest();
+        });
+    }
 
     auto SeekToFirst() -> void override {
         index_ = 0;

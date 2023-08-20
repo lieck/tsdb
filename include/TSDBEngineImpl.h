@@ -40,6 +40,8 @@ public:
     ~TSDBEngineImpl() override;
 
 private:
+    int initialDirFd_;
+
     DBOptions *db_option_{};
 
     std::atomic_bool shutdown_{false};

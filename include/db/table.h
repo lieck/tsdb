@@ -47,11 +47,12 @@ private:
     };
 
 public:
-    explicit Table() = default;
     explicit Table(std::string tableName, Schema schema, DBOptions *options);
     ~Table() = default;
 
     DISALLOW_COPY_AND_MOVE(Table);
+
+    auto GetTableName() -> std::string { return table_name_; }
 
     auto Upsert(const WriteRequest &wReq) -> int;
 

@@ -14,11 +14,7 @@ private:
     };
 
 public:
-    explicit MergingIterator(std::vector<std::unique_ptr<Iterator>> children) : children_(std::move(children)) {
-        for (auto &child : children_) {
-            heap_.push(child.get());
-        }
-    }
+    explicit MergingIterator(std::vector<std::unique_ptr<Iterator>> children) : children_(std::move(children)) {}
 
     ~MergingIterator() override = default;
 
@@ -27,11 +23,11 @@ public:
     void Seek(const InternalKey &key) override;
 
     auto GetKey() -> InternalKey override {
-        return heap_.top()->GetKey();
+        return children_[idx_]->GetKey();
     }
 
     auto GetValue() -> std::string override {
-        return heap_.top()->GetValue();
+        return children_[idx_]->GetValue();
     }
 
     auto Valid() -> bool override;
@@ -41,8 +37,8 @@ public:
 private:
     void InitHeap();
 
+    size_t idx_{0};
     std::vector<std::unique_ptr<Iterator>> children_;
-    std::priority_queue<Iterator *, std::vector<Iterator*>, IteratorCompare> heap_;
 };
 
 auto MergingIterator::SeekToFirst() -> void {
@@ -60,26 +56,26 @@ void MergingIterator::Seek(const InternalKey &key) {
 }
 
 auto MergingIterator::Valid() -> bool {
-    return !heap_.empty();
+    return children_[idx_]->Valid();
 }
 
 auto MergingIterator::Next() -> void {
-    auto *top = heap_.top();
-    heap_.pop();
-    top->Next();
-    if (top->Valid()) {
-        heap_.push(top);
-    }
+    children_[idx_]->Next();
+    InitHeap();
 }
 
 void MergingIterator::InitHeap() {
-    while (!heap_.empty()) {
-        heap_.pop();
-    }
-
-    for (auto &child : children_) {
-        if (child->Valid()) {
-            heap_.push(child.get());
+    bool vis = false;
+    for(size_t i = 0; i < children_.size(); i++) {
+        if(children_[i]->Valid()) {
+            if(!vis) {
+                idx_ = i;
+                vis = true;
+            } else {
+                if(children_[i]->GetKey() < children_[idx_]->GetKey()) {
+                    idx_ = i;
+                }
+            }
         }
     }
 }

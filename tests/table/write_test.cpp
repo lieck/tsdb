@@ -19,11 +19,11 @@ TEST(WriteTest, MemTaleCompress) {
     auto wr = test.GenerateWriteRequest(0, 1000, 12);
     ASSERT_EQ(table->Upsert(wr), 0) << "Upsert failed";
 
-    sleep(5);
+    options->bg_task_->WaitForEmptyQueue();
     auto qr = test.GenerateLatestQueryRequest(0, 100);
     std::vector<Row> results;
     ASSERT_EQ(table->ExecuteLatestQuery(qr, results), 0) << "ExecuteLatestQuery failed";
-    test.CheckQuery(results, 0, 100);
+    test.CheckLastQuery(results, qr, true);
     options->bg_task_->WaitForEmptyQueue();
 }
 
@@ -42,7 +42,7 @@ TEST(WriteTest, L0Compress) {
     auto qr = test.GenerateLatestQueryRequest(0, 100);
     std::vector<Row> results;
     ASSERT_EQ(table->ExecuteLatestQuery(qr, results), 0) << "ExecuteLatestQuery failed";
-    test.CheckQuery(results, 0, 100);
+    test.CheckLastQuery(results, qr, true);
 
     options->bg_task_->WaitForEmptyQueue();
 }
@@ -73,8 +73,7 @@ TEST(WriteTest, NotWrittenInOrder) {
         auto qr = test.GenerateLatestQueryRequest(100, 300);
         std::vector<Row> results;
         ASSERT_EQ(table->ExecuteLatestQuery(qr, results), 0) << "ExecuteLatestQuery failed";
-        test.CheckQuery(results, 100, 300);
-        sleep(1);
+        test.CheckLastQuery(results, qr, true);
     }
 
     options->bg_task_->WaitForEmptyQueue();
@@ -83,7 +82,7 @@ TEST(WriteTest, NotWrittenInOrder) {
         auto qr = test.GenerateLatestQueryRequest(100, 300);
         std::vector<Row> results;
         ASSERT_EQ(table->ExecuteLatestQuery(qr, results), 0) << "ExecuteLatestQuery failed";
-        test.CheckQuery(results, 100, 300);
+        test.CheckLastQuery(results, qr, true);
     }
 }
 
@@ -104,7 +103,7 @@ TEST(WriteTest, BasicsRangeQuery) {
         auto qr = test.GenerateTimeRangeQueryRequest(0, 0, 100);
         std::vector<Row> results;
         ASSERT_EQ(table->ExecuteTimeRangeQuery(qr, results), 0) << "ExecuteLatestQuery failed";
-        test.CheckRangeQuery(results, 0, 0, 100);
+        test.CheckRangeQuery(results, qr, true);
     }
 
     options->bg_task_->WaitForEmptyQueue();
@@ -118,17 +117,20 @@ TEST(WriteTest, RangeQuery) {
     TestTableOperator test("test", TestSchemaType::Basic);
     auto table = test.GenerateTable(options);
 
-    for(int i = 0; i <= 100; i++) {
-        auto wr = test.GenerateWriteRequest(0, 10, i);
-        ASSERT_EQ(table->Upsert(wr), 0) << "Upsert failed";
+    for(int i = 0; i <= 300; i++) {
+        for(int j = 0; j <= 10; j++) {
+            auto wr = test.GenerateWriteRequest(i * j * j + 5, 10, i);
+            ASSERT_EQ(table->Upsert(wr), 0) << "Upsert failed";
+        }
     }
 
     options->bg_task_->WaitForEmptyQueue();
-
-    auto qr = test.GenerateTimeRangeQueryRequest(0, 0, 100);
-    std::vector<Row> results;
-    ASSERT_EQ(table->ExecuteTimeRangeQuery(qr, results), 0) << "ExecuteLatestQuery failed";
-    test.CheckRangeQuery(results, 0, 0, 100);
+    for(int i = 0; i < 1000; i++) {
+        auto qr = test.GenerateTimeRangeQueryRequest(i, 0, 100);
+        std::vector<Row> results;
+        ASSERT_EQ(table->ExecuteTimeRangeQuery(qr, results), 0) << "ExecuteLatestQuery failed";
+        test.CheckRangeQuery(results, qr, true);
+    }
 
     options->bg_task_->WaitForEmptyQueue();
 }
@@ -152,7 +154,34 @@ TEST(WriteTest, RangeQuery2) {
     auto qr = test.GenerateTimeRangeQueryRequest(0, 200, 400);
     std::vector<Row> results;
     ASSERT_EQ(table->ExecuteTimeRangeQuery(qr, results), 0) << "ExecuteLatestQuery failed";
-    test.CheckRangeQuery(results, qr, false);
+    test.CheckRangeQuery(results, qr, true);
+
+    options->bg_task_->WaitForEmptyQueue();
+}
+
+TEST(WriteTest, RangeQuery3) {
+    LOG_INFO("memtable write buffer size = %d", K_MEM_TABLE_SIZE_THRESHOLD);
+
+    auto options = NewDBOptions();
+
+    TestTableOperator test("test", TestSchemaType::Basic);
+    auto table = test.GenerateTable(options);
+
+    for(int i = 0; i <= 500; i++) {
+        auto start = rand() % 1000;
+        auto wr = test.GenerateWriteRequest(0, 10, start);
+        ASSERT_EQ(table->Upsert(wr), 0) << "Upsert failed";
+    }
+
+    options->bg_task_->WaitForEmptyQueue();
+
+    for(int i = 0; i <= 100; i++) {
+        auto start = rand() % 1000;
+        auto qr = test.GenerateTimeRangeQueryRequest(0, start, start + 100);
+        std::vector<Row> results;
+        ASSERT_EQ(table->ExecuteTimeRangeQuery(qr, results), 0) << "ExecuteLatestQuery failed";
+        test.CheckRangeQuery(results, qr, false);
+    }
 
     options->bg_task_->WaitForEmptyQueue();
 }

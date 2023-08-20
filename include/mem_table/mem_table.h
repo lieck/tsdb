@@ -16,7 +16,7 @@ public:
 
     DISALLOW_COPY_AND_MOVE(MemTable);
 
-    auto Insert(Row row) -> bool;
+    auto Insert(const Row& row) -> bool;
 
     auto ApproximateSize() const -> size_t { return approximate_size_; }
 

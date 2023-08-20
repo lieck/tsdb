@@ -9,7 +9,7 @@
 
 namespace LindormContest {
 
-void RunTest(int write_thread_count, int read_thread_count, int write_count, bool range_query) {
+void RunTest(int write_thread_count, int read_thread_count, int write_count, bool range_query, bool check_value) {
     LOG_INFO("memtable write buffer size = %d", K_MEM_TABLE_SIZE_THRESHOLD);
     auto options = NewDBOptions();
     TestTableOperator test("test", TestSchemaType::Basic);
@@ -31,6 +31,8 @@ void RunTest(int write_thread_count, int read_thread_count, int write_count, boo
         t.join();
     }
 
+    options->bg_task_->WaitForEmptyQueue();
+
     std::vector<std::thread> read_threads;
     for(int i = 0; i < read_thread_count; i++) {
         read_threads.emplace_back([&]() {
@@ -41,12 +43,12 @@ void RunTest(int write_thread_count, int read_thread_count, int write_count, boo
                     auto qr = test.GenerateTimeRangeQueryRequest(start, time_range, time_range + 100);
                     std::vector<Row> results;
                     ASSERT_EQ(table->ExecuteTimeRangeQuery(qr, results), 0) << "ExecuteRangeQuery failed";
-                    test.CheckRangeQuery(results, qr, false);
+                    test.CheckRangeQuery(results, qr, check_value);
                 } else {
                     auto qr = test.GenerateLatestQueryRequest(start, 100);
                     std::vector<Row> results;
                     ASSERT_EQ(table->ExecuteLatestQuery(qr, results), 0) << "ExecuteLatestQuery failed";
-                    test.CheckLastQuery(results, qr, false);
+                    test.CheckLastQuery(results, qr, check_value);
                 }
             }
         });
@@ -61,27 +63,28 @@ void RunTest(int write_thread_count, int read_thread_count, int write_count, boo
 
 
 TEST(WriteConcurrencTest, SingleWrite) {
-    RunTest(1, 1, 50, false);
+    RunTest(1, 1, 50, false, true);
 }
 
 TEST(WriteConcurrencTest, TwoWrite) {
-    RunTest(2, 1, 50, false);
+    RunTest(2, 1, 50, false, true);
 }
 
 TEST(WriteConcurrencTest, MultipleWrite) {
-    RunTest(4, 1, 50, false);
+    RunTest(4, 1, 50, false, true);
 }
 
 TEST(WriteConcurrencTest, Normal) {
-    RunTest(2, 2, 50, true);
+    RunTest(2, 2, 50, true, false);
 }
 
 TEST(WriteConcurrencTest, NormalPlus) {
-    RunTest(4, 4, 50, true);
+    RunTest(4, 4, 50, true, false);
 }
 
 TEST(WriteConcurrencTest, NormalPlusAdd) {
-    RunTest(4, 6, 50, true);
+    RunTest(4, 6, 50, true, false);
 }
+
 
 } // namespace LindormContest

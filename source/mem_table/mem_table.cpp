@@ -4,33 +4,56 @@
 namespace LindormContest {
 
 
-auto MemTable::Insert(Row row) -> bool {
+auto MemTable::Insert(const Row& row) -> bool {
     approximate_size_ += INTERNAL_KEY_SIZE;
 
-    std::string buffer;
+    // 计算 value length
+    uint32_t value_len = 0;
     for(auto &col : row.columns) {
         if(col.second.getColumnType() == LindormContest::COLUMN_TYPE_DOUBLE_FLOAT) {
-            buffer.resize(8);
-            memcpy(buffer.data(), col.second.columnData, 8);
-            approximate_size_ += 8;
+            value_len += 8;
         } else if(col.second.getColumnType() == LindormContest::COLUMN_TYPE_INTEGER) {
-            buffer.resize(4);
-            memcpy(buffer.data(), col.second.columnData, 4);
-            approximate_size_ += 4;
+            value_len += 4;
         } else if(col.second.getColumnType() == LindormContest::COLUMN_TYPE_STRING) {
             std::pair<int32_t, const char *> value;
             if(col.second.getStringValue(value) != 0) {
                 return false;
             }
-            buffer.resize(4 + value.first);
-            memcpy(buffer.data(), &value.first, 4);
-            memcpy(buffer.data() + 4, value.second, value.first);
-            approximate_size_ += 4 + value.first;
+            value_len += 4 + value.first;
+        }
+    }
+
+    ASSERT(value_len < UINT32_MAX, "value_len < UINT32_MAX");
+
+    std::string str_value;
+    str_value.resize(value_len);
+    char *buffer = str_value.data();
+    int32_t buffer_offset = 0;
+
+    for(auto &col : row.columns) {
+        if(col.second.getColumnType() == LindormContest::COLUMN_TYPE_DOUBLE_FLOAT) {
+            memcpy(buffer + buffer_offset, col.second.columnData, 8);
+            buffer_offset += 8;
+        } else if(col.second.getColumnType() == LindormContest::COLUMN_TYPE_INTEGER) {
+            memcpy(buffer + buffer_offset, col.second.columnData, 4);
+            buffer_offset += 4;
+        } else if(col.second.getColumnType() == LindormContest::COLUMN_TYPE_STRING) {
+            std::pair<int32_t, const char *> value;
+            if(col.second.getStringValue(value) != 0) {
+                return false;
+            }
+
+            memcpy(buffer + buffer_offset, &value.first, 4);
+            buffer_offset += 4;
+
+            memcpy(buffer + buffer_offset, value.second, value.first);
+            buffer_offset += value.first;
         } else {
             return false;
         }
     }
-    data_.emplace(InternalKey(row.vin, row.timestamp), std::move(buffer));
+
+    data_.emplace(InternalKey(row.vin, row.timestamp), str_value);
     return true;
 }
 

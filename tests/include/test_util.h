@@ -7,17 +7,75 @@ namespace LindormContest {
 
 enum TestSchemaType {
     Basic,
+    Complex,
+    Long
 };
-
-TestSchemaType current_schema_type = TestSchemaType::Basic;
 
 auto GenerateSchema(TestSchemaType type) -> Schema {
     Schema schema;
     if(type == TestSchemaType::Basic) {
         schema.columnTypeMap["c1"] = LindormContest::ColumnType::COLUMN_TYPE_INTEGER;
+    } else if(type == TestSchemaType::Complex) {
+        schema.columnTypeMap["c1"] = LindormContest::ColumnType::COLUMN_TYPE_INTEGER;
+        schema.columnTypeMap["c2"] = LindormContest::ColumnType::COLUMN_TYPE_STRING;
+        schema.columnTypeMap["c3"] = LindormContest::ColumnType::COLUMN_TYPE_DOUBLE_FLOAT;
+    } else if(type == TestSchemaType::Long) {
+        schema.columnTypeMap["col_integer_1"] = LindormContest::ColumnType::COLUMN_TYPE_INTEGER;
+        schema.columnTypeMap["col_integer_2"] = LindormContest::ColumnType::COLUMN_TYPE_INTEGER;
+        schema.columnTypeMap["col_integer_3"] = LindormContest::ColumnType::COLUMN_TYPE_INTEGER;
+        schema.columnTypeMap["col_string_1"] = LindormContest::ColumnType::COLUMN_TYPE_STRING;
+        schema.columnTypeMap["col_string_2"] = LindormContest::ColumnType::COLUMN_TYPE_STRING;
+        schema.columnTypeMap["col_string_3"] = LindormContest::ColumnType::COLUMN_TYPE_STRING;
+        schema.columnTypeMap["col_double_1"] = LindormContest::ColumnType::COLUMN_TYPE_DOUBLE_FLOAT;
+        schema.columnTypeMap["col_double_2"] = LindormContest::ColumnType::COLUMN_TYPE_DOUBLE_FLOAT;
+        schema.columnTypeMap["col_double_3"] = LindormContest::ColumnType::COLUMN_TYPE_DOUBLE_FLOAT;
     }
 
     return schema;
+}
+
+
+auto GetRequestedColumns(TestSchemaType type) -> std::set<std::string> {
+    std::set<std::string> ret;
+    if(type == TestSchemaType::Basic) {
+        ret.insert("c1");
+    } else if(type == TestSchemaType::Complex) {
+        ret.insert("c1");
+        ret.insert("c2");
+        ret.insert("c3");
+    } else if(type == TestSchemaType::Long) {
+        ret.insert("col_integer_1");
+        ret.insert("col_integer_2");
+        ret.insert("col_integer_3");
+        ret.insert("col_string_1");
+        ret.insert("col_string_2");
+        ret.insert("col_string_3");
+        ret.insert("col_double_1");
+        ret.insert("col_double_2");
+        ret.insert("col_double_3");
+    }
+
+    return ret;
+}
+
+auto GenerateTestRow(Row &row, TestSchemaType type) {
+    if(type == TestSchemaType::Basic) {
+        row.columns["c1"] = ColumnValue(1);
+    } else if(type == TestSchemaType::Complex) {
+        row.columns["c1"] = ColumnValue(1);
+        row.columns["c2"] = ColumnValue("string_value_1_1");
+        row.columns["c3"] = ColumnValue(3.0);
+    } else if(type == TestSchemaType::Long) {
+        row.columns["col_integer_1"] = ColumnValue(1);
+        row.columns["col_integer_2"] = ColumnValue(2);
+        row.columns["col_integer_3"] = ColumnValue(3);
+        row.columns["col_string_1"] = ColumnValue("string_value_1_1");
+        row.columns["col_string_2"] = ColumnValue("string_value_1_2");
+        row.columns["col_string_3"] = ColumnValue("string_value_1_3");
+        row.columns["col_double_1"] = ColumnValue(1.0);
+        row.columns["col_double_2"] = ColumnValue(2.0);
+        row.columns["col_double_3"] = ColumnValue(3.0);
+    }
 }
 
 auto GenerateVin(int64_t key) -> Vin {

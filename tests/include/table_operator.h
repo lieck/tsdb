@@ -2,7 +2,6 @@
 #include <utility>
 #include <algorithm>
 
-
 namespace LindormContest {
 
     using timestamp_t = int64_t;
@@ -12,14 +11,10 @@ namespace LindormContest {
 
     public:
         explicit TestTableOperator(std::string name, TestSchemaType type) : name_(std::move(name)), type_(type) {
-            if(type == TestSchemaType::Basic) {
-                schema_.columnTypeMap["c1"] = LindormContest::ColumnType::COLUMN_TYPE_INTEGER;
-            }
+            schema_ = GenerateSchema(type);
         }
 
-        ~TestTableOperator() {
-            delete table_;
-        }
+        ~TestTableOperator() = default;
 
         auto GenerateTable(DBOptions *options) -> Table* {
             table_ = new Table("test", schema_, options);
@@ -35,13 +30,9 @@ namespace LindormContest {
                 Row row;
                 row.vin = GenerateVin(start_key + i);
                 row.timestamp = timestamp;
-
-                if(current_schema_type == TestSchemaType::Basic) {
-                    row.columns["c1"] = ColumnValue(static_cast<int32_t>((start_key + i) & 0x7fffffff));
-                }
+                GenerateTestRow(row, type_);
 
                 wr.rows.push_back(row);
-
                 data_[row.vin][row.timestamp] = row;
             }
 
@@ -56,10 +47,7 @@ namespace LindormContest {
                 qr.vins.push_back(GenerateVin(start_key + i));
             }
 
-            if(type_ == TestSchemaType::Basic) {
-                qr.requestedColumns = {"c1"};
-            }
-
+            qr.requestedColumns = GetRequestedColumns(type_);
             return qr;
         }
 
@@ -73,64 +61,8 @@ namespace LindormContest {
             qr.timeLowerBound = start_time;
             qr.timeUpperBound = end_time;
 
-            if(type_ == TestSchemaType::Basic) {
-                qr.requestedColumns = {"c1"};
-            }
-
+            qr.requestedColumns = GetRequestedColumns(type_);
             return qr;
-        }
-
-        void CheckQuery(std::vector<Row> & results, int64_t start_key, int limit, timestamp_t timestamp = 0) {
-            std::scoped_lock<std::mutex> lock(mutex_);
-
-            ASSERT(limit > 0, "limit must be positive");
-            ASSERT_EQ(results.size(), limit) << "results.size() = " << results.size() << ", limit = " << limit;
-
-            sort(results.begin(), results.end(), [](const Row & a, const Row & b) {
-                return a.vin < b.vin;
-            });
-
-            std::set<Vin> check_vins;
-            for(int i = 0; i < limit; i++) {
-                check_vins.insert(GenerateVin(start_key + i));
-            }
-
-            size_t i = 0;
-            for(const auto &vin : check_vins) {
-                ASSERT_TRUE(i < results.size());
-                auto & row = results[i];
-                ASSERT_EQ(row.vin, vin)
-                    << "vin = " << row.vin.vin << ", expected = " << vin.vin;
-                if(timestamp != 0) {
-                    ASSERT_EQ(row.timestamp, timestamp);
-                }
-
-                if(data_[row.vin].count(row.timestamp) == 0) {
-                    ASSERT_TRUE(false) << "vin = " << row.vin.vin << ", timestamp = " << row.timestamp
-                                       << " not found in data_";
-                } else {
-                    auto check_row = data_[row.vin][row.timestamp];
-                    ASSERT_EQ(row.vin, check_row.vin);
-                    ASSERT_EQ(row.timestamp, check_row.timestamp);
-                    ASSERT_EQ(row.columns.size(), check_row.columns.size());
-                    for(auto & column : row.columns) {
-                        ASSERT_EQ(column.second, check_row.columns[column.first]);
-                    }
-                }
-                i++;
-            }
-        }
-
-        void CheckRangeQuery(const std::vector<Row> &result, int64_t key, int64_t start_time, int64_t end_time) {
-            ASSERT_EQ(result.size(), end_time - start_time);
-            std::set<int64_t> check_timestamps;
-            for(auto & row : result) {
-                ASSERT_EQ(row.vin, GenerateVin(key));
-                ASSERT_GE(row.timestamp, start_time);
-                ASSERT_LE(row.timestamp, end_time);
-                ASSERT_TRUE(check_timestamps.count(row.timestamp) == 0);
-                check_timestamps.insert(row.timestamp);
-            }
         }
 
         void CheckLastQuery(std::vector<Row> & results, LatestQueryRequest &rq, bool check_value) {
@@ -182,7 +114,11 @@ namespace LindormContest {
                 }
             }
 
-            ASSERT_EQ(check_count, results.size());
+            ASSERT_EQ(check_count, results.size()) << "vin = " << qr.vin.vin
+                                                   << ", lower = " << qr.timeLowerBound
+                                                   << ", upper = " << qr.timeUpperBound
+                                                   << ", check_count = " << check_count
+                                                   << ", results.size() = " << results.size();
 
             auto iter = mp_results.begin();
 
