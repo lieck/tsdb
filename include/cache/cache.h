@@ -94,6 +94,14 @@ namespace LindormContest {
             if (handle->refs_ == 0) {
                 LruAppend(&lru_, handle);
             }
+
+            while (usage_ > capacity_ && lru_.next_ != &lru_) {
+                auto old = lru_.next_;
+                LruRemove(old);
+                table_.erase(old->cache_id_);
+                usage_ -= old->charge_;
+                delete old;
+            }
         }
 
     private:

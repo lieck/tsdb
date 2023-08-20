@@ -91,7 +91,7 @@ auto TableMetaData::GenerateCompactionTask() -> CompactionTask* {
     // 确定压缩文件的结束位置
     uint64_t compaction_size = 0;
     for(size_t i = start_idx; i < files.size(); i++) {
-        if(compaction_size + files[i]->GetFileSize() > MAX_FILE_SIZE) {
+        if(compaction_size + files[i]->GetFileSize() > MAX_FILE_SIZE + MAX_FILE_SIZE) {
             break;
         }
 

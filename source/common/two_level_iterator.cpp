@@ -68,7 +68,7 @@ void TwoLevelIterator::Next() {
     ASSERT(data_iter_ != nullptr, "data_iter_ is nullptr");
     data_iter_->Next();
     if(!data_iter_->Valid()) {
-        data_iter_ = nullptr;
+        data_iter_.reset();
 
         index_iter_->Next();
         InitDataBlock();

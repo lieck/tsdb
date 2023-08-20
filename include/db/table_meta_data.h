@@ -17,12 +17,21 @@ namespace LindormContest {
 
 // 返回每层的最大文件大小
 static auto MaxBytesForLevel(int level) -> double {
+#ifndef NDEBUG
+    double result = 4. * MAX_FILE_SIZE;
+    while (level > 1) {
+        result *= 4;
+        level--;
+    }
+    return result;
+#else
     double result = 10. * 1048576.0;
     while (level > 1) {
         result *= 10;
         level--;
     }
     return result;
+#endif
 }
 
 enum CompactionType { SizeCompaction, SeekCompaction };

@@ -131,6 +131,8 @@ auto Table::ExecuteTimeRangeQuery(const TimeRangeQueryRequest &trReadReq, std::v
     }
     lock.unlock();
 
+    LOG_INFO("ExecuteTimeRangeQuery search mem_table");
+
     // mem 需要加锁
     if(mem_table != nullptr) {
         mem_table->Lock();
@@ -171,25 +173,24 @@ auto Table::MemTableQuery(Table::QueryRequest &req, const std::shared_ptr<MemTab
 
 auto Table::MemTableRangeQuery(Table::RangeQueryRequest &req, const std::shared_ptr<MemTable>& mem) -> void {
     auto iter = mem->NewIterator();
-    iter->Seek(InternalKey(*req.vin_, req.time_upper_bound_ - 1));
+    // iter->Seek(InternalKey(*req.vin_, req.time_upper_bound_ - 1));
+    iter->SeekToFirst();
     while(iter->Valid()) {
         auto key = iter->GetKey();
-        if(key.vin_ != *req.vin_ || key.timestamp_ < req.time_lower_bound_) {
-            break;
-        }
-
-        if(key.timestamp_ < req.time_lower_bound_ || key.timestamp_ > req.time_upper_bound_) {
+        if(key.vin_ != *req.vin_) {
             iter->Next();
             continue;
         }
 
-        if(req.time_set_.count(key.timestamp_) == 0) {
-            req.time_set_.insert(key.timestamp_);
+        if(key.timestamp_ >= req.time_lower_bound_ && key.timestamp_ < req.time_upper_bound_) {
+            if(req.time_set_.count(key.timestamp_) == 0) {
+                req.time_set_.insert(key.timestamp_);
 
-            Row row = CodingUtil::DecodeRow(iter->GetValue().data(), schema_, req.columns_);
-            row.vin = key.vin_;
-            row.timestamp = key.timestamp_;
-            req.result_->push_back(row);
+                Row row = CodingUtil::DecodeRow(iter->GetValue().data(), schema_, req.columns_);
+                row.vin = key.vin_;
+                row.timestamp = key.timestamp_;
+                req.result_->push_back(row);
+            }
         }
 
         iter->Next();
@@ -219,28 +220,30 @@ auto Table::FileTableQuery(const FileMetaDataPtr& fileMetaData, Table::QueryRequ
 }
 
 void Table::FileTableRangeQuery(const FileMetaDataPtr& fileMetaData, Table::RangeQueryRequest &req) {
+//    if(fileMetaData->largest_ < req.lower_bound_ || req.upper_bound_ < fileMetaData->smallest_
+//    || req.upper_bound_ == fileMetaData->smallest_) {
+//        return;
+//    }
+
     auto iter = table_cache_->NewTableIterator(fileMetaData);
-    iter->Seek(InternalKey(*req.vin_, req.time_upper_bound_ - 1));
+    iter->SeekToFirst();
     while(iter->Valid()) {
         auto key = iter->GetKey();
-        if(key.vin_ != *req.vin_ || key.timestamp_ < req.time_lower_bound_) {
-            break;
-        }
-
-        if(key.timestamp_ < req.time_lower_bound_ || key.timestamp_ > req.time_upper_bound_) {
+        if(key.vin_ != *req.vin_) {
             iter->Next();
             continue;
         }
 
-        if(req.time_set_.count(key.timestamp_) == 0) {
-            req.time_set_.insert(key.timestamp_);
+        if(key.timestamp_ >= req.time_lower_bound_ && key.timestamp_ < req.time_upper_bound_) {
+            if(req.time_set_.count(key.timestamp_) == 0) {
+                req.time_set_.insert(key.timestamp_);
 
-            Row row = CodingUtil::DecodeRow(iter->GetValue().data(), schema_, req.columns_);
-            row.vin = key.vin_;
-            row.timestamp = key.timestamp_;
-            req.result_->push_back(row);
+                Row row = CodingUtil::DecodeRow(iter->GetValue().data(), schema_, req.columns_);
+                row.vin = key.vin_;
+                row.timestamp = key.timestamp_;
+                req.result_->push_back(row);
+            }
         }
-
         iter->Next();
     }
 }
@@ -359,18 +362,21 @@ auto Table::DoManualCompaction(CompactionTask *task) -> bool {
     while(input_iter->Valid()) {
         if(builder == nullptr || builder->EstimatedSize() >= MAX_FILE_SIZE) {
             if(builder != nullptr) {
-                // TODO(lieck): 灏� SSTable 鏀惧叆 TableCache
                 auto sstable = builder->Builder();
 
                 file_meta_data->largest_ = largest;
                 file_meta_data->file_size_ = sstable->GetFileSize();
                 task->output_files_.emplace_back(file_meta_data);
 
+//                if(options_->table_cache_ != nullptr) {
+//                    options_->table_cache_->AddSSTable(std::move(sstable));
+//                }
+
                 delete builder;
             }
 
             auto file_number = options_->NextFileNumber();
-            builder = new SStableBuilder(file_number);
+            builder = new SStableBuilder(file_number, options_->block_cache_);
             file_meta_data = new FileMetaData();
             file_meta_data->file_number_ = file_number;
             file_meta_data->smallest_ = input_iter->GetKey();
@@ -401,7 +407,7 @@ auto Table::CompactMemTable(const std::shared_ptr<MemTable> &mem) -> FileMetaDat
     LOG_INFO("Compact MemTable table");
     auto file_number = options_->NextFileNumber();
 
-    SStableBuilder builder(file_number);
+    SStableBuilder builder(file_number, options_->block_cache_);
     auto iter = mem->NewIterator();
     iter->SeekToFirst();
 

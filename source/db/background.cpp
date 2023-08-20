@@ -1,4 +1,5 @@
 #include <thread>
+#include <atomic>
 #include "db/background.h"
 #include "common/macros.h"
 
@@ -22,10 +23,14 @@ void BackgroundTask::Schedule(void (*function)(void *), void *arg) {
 
 void BackgroundTask::BackgroundThreadMain() {
     std::unique_lock<std::mutex> lock(mutex_);
-    while(true) {
+    while(!is_shutting_down_.load(std::memory_order_acquire)) {
         while (background_work_queue_.empty()) {
             cv_.notify_all();
             cv_.wait(lock);
+
+            if(is_shutting_down_.load(std::memory_order_acquire)) {
+                return;
+            }
         }
 
         ASSERT(!background_work_queue_.empty(), "background_work_queue_ is empty");

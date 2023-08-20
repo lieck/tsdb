@@ -35,10 +35,10 @@ struct BlockHeader {
 struct BlockMeta {
     uint32_t offset_;
     uint64_t size_;
-    InternalKey first_key_;
+    InternalKey end_key_;
 
-    BlockMeta(uint32_t offset_, uint64_t size, InternalKey first_key)
-            : offset_(offset_), size_(size), first_key_(std::move(first_key)) {}
+    BlockMeta(uint32_t offset_, uint64_t size, InternalKey end_key)
+            : offset_(offset_), size_(size), end_key_(std::move(end_key)) {}
 };
 
 class SStableBuilder {

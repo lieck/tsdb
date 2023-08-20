@@ -47,6 +47,120 @@ TEST(WriteTest, L0Compress) {
     options->bg_task_->WaitForEmptyQueue();
 }
 
+
+TEST(WriteTest, L1Compress) {
+    LOG_INFO("memtable write buffer size = %d", K_MEM_TABLE_SIZE_THRESHOLD);
+
+    auto options = NewDBOptions();
+
+    TestTableOperator test("test", TestSchemaType::Basic);
+    auto table = test.GenerateTable(options);
+
+    for(int i = 0; i < 5; i++) {
+        auto wr = test.GenerateWriteRequest(i * 1000, 1000, 120);
+        ASSERT_EQ(table->Upsert(wr), 0) << "Upsert failed";
+    }
+
+    options->bg_task_->WaitForEmptyQueue();
+
+    for(int i = 0; i < 5; i++) {
+        auto qr = test.GenerateLatestQueryRequest(i * 500, 500);
+        std::vector<Row> results;
+        ASSERT_EQ(table->ExecuteLatestQuery(qr, results), 0) << "ExecuteLatestQuery failed";
+        test.CheckLastQuery(results, qr, true);
+    }
+
+    options->bg_task_->WaitForEmptyQueue();
+}
+
+TEST(WriteTest, L2Compress) {
+    LOG_INFO("memtable write buffer size = %d", K_MEM_TABLE_SIZE_THRESHOLD);
+
+    auto options = NewDBOptions();
+
+    TestTableOperator test("test", TestSchemaType::Complex);
+    auto table = test.GenerateTable(options);
+
+    for(int i = 100; i <= 300; i += 10) {
+        auto wr = test.GenerateWriteRequest(0, 1000, i);
+        ASSERT_EQ(table->Upsert(wr), 0) << "Upsert failed";
+    }
+
+    options->bg_task_->WaitForEmptyQueue();
+
+    for(int i = 0; i < 5; i++) {
+        auto qr = test.GenerateLatestQueryRequest(i * 500, 500);
+        std::vector<Row> results;
+        ASSERT_EQ(table->ExecuteLatestQuery(qr, results), 0) << "ExecuteLatestQuery failed";
+        test.CheckLastQuery(results, qr, true);
+    }
+
+    for(int i = 0; i < 1000; i++) {
+        auto qr = test.GenerateTimeRangeQueryRequest(i, 0, 500);
+        std::vector<Row> results;
+        ASSERT_EQ(table->ExecuteTimeRangeQuery(qr, results), 0) << "ExecuteLatestQuery failed";
+        test.CheckRangeQuery(results, qr, true);
+    }
+
+    options->bg_task_->WaitForEmptyQueue();
+}
+
+
+// 测试多级压缩的情况下，数据是否发生了丢失
+TEST(WriteTest, L2Compress2) {
+    LOG_INFO("memtable write buffer size = %d", K_MEM_TABLE_SIZE_THRESHOLD);
+
+    auto options = NewDBOptions();
+
+    TestTableOperator test("test", TestSchemaType::Complex);
+    auto table = test.GenerateTable(options);
+
+    for(int i = 0; i <= 10000; i += 1000) {
+        auto wr = test.GenerateWriteRequest(i, 1000, 100);
+        ASSERT_EQ(table->Upsert(wr), 0) << "Upsert failed";
+    }
+
+    options->bg_task_->WaitForEmptyQueue();
+
+    for(int i = 0; i < 10000; i += 1000) {
+        auto qr = test.GenerateLatestQueryRequest(i, 1000);
+        std::vector<Row> results;
+        ASSERT_EQ(table->ExecuteLatestQuery(qr, results), 0) << "ExecuteLatestQuery failed";
+        test.CheckLastQuery(results, qr, true);
+    }
+
+    options->bg_task_->WaitForEmptyQueue();
+}
+
+
+// 测试顺序写入情况下， range query 的正确性
+TEST(WriteTest, L2Compress3) {
+    LOG_INFO("memtable write buffer size = %d", K_MEM_TABLE_SIZE_THRESHOLD);
+
+    auto options = NewDBOptions();
+
+    TestTableOperator test("test", TestSchemaType::Complex);
+    auto table = test.GenerateTable(options);
+
+    for(int i = 0; i <= 100; i++) {
+        auto wr = test.GenerateWriteRequest(i, 100, i + 100);
+        ASSERT_EQ(table->Upsert(wr), 0) << "Upsert failed";
+    }
+
+    options->bg_task_->WaitForEmptyQueue();
+
+    for(int i = 0; i < 100; i += 1000) {
+        auto qr = test.GenerateTimeRangeQueryRequest(i, 0, 2000);
+        std::vector<Row> results;
+        ASSERT_EQ(table->ExecuteTimeRangeQuery(qr, results), 0) << "ExecuteLatestQuery failed";
+        test.CheckRangeQuery(results, qr, true);
+    }
+
+    options->bg_task_->WaitForEmptyQueue();
+}
+
+
+
 TEST(WriteTest, NotWrittenInOrder) {
     LOG_INFO("memtable write buffer size = %d", K_MEM_TABLE_SIZE_THRESHOLD);
 
@@ -125,6 +239,7 @@ TEST(WriteTest, RangeQuery) {
     }
 
     options->bg_task_->WaitForEmptyQueue();
+
     for(int i = 0; i < 1000; i++) {
         auto qr = test.GenerateTimeRangeQueryRequest(i, 0, 100);
         std::vector<Row> results;

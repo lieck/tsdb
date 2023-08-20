@@ -7,6 +7,7 @@
 namespace LindormContest {
 
 auto SStableBuilder::Add(const InternalKey &key, std::string &value) -> void {
+    ASSERT(end_key_ < key || end_key_ == key, "SStableBuilder::Add key must be increasing");
     if(!block_builder_.Add(key, value)) {
         FlushBlock();
 
@@ -66,7 +67,7 @@ auto SStableBuilder::Builder() -> std::unique_ptr<SSTable> {
         BlockHeader value(meta.offset_, meta.size_);
         value.EncodeTo(buffer);
 
-        if(!builder.Add(InternalKey(meta.first_key_), std::string_view(buffer, BLOCK_HEADER_SIZE))) {
+        if(!builder.Add(meta.end_key_, std::string_view(buffer, BLOCK_HEADER_SIZE))) {
             throw Exception("SStableBuilder failed to add");
         }
     }

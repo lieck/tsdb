@@ -37,7 +37,7 @@ namespace LindormContest {
 
         for(int c = 0; c < 2; c++) {
             if(engine == nullptr) {
-                engine = new TSDBEngineImpl("./db_test");
+                engine = new TSDBEngineImpl("./db");
             }
 
             ASSERT_EQ(engine->connect(), 0);

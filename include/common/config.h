@@ -17,14 +17,14 @@ static constexpr int K_NUM_LEVELS = 7;
 #ifndef NDEBUG
 static constexpr int K_MEM_TABLE_SIZE_THRESHOLD = 20 * 1024;
 #else
-static constexpr int K_MEM_TABLE_SIZE_THRESHOLD = 20 * 1024 * 1024;
+static constexpr int K_MEM_TABLE_SIZE_THRESHOLD = 4 * 1024 * 1024;
 #endif
 
 // sstable file 的最大大小
 #ifndef NDEBUG
 static constexpr uint64_t MAX_FILE_SIZE = 40 * 1024;
 #else
-static constexpr uint64_t MAX_FILE_SIZE = 4 * 1024 * 1024;
+static constexpr uint64_t MAX_FILE_SIZE = 8 * 1024 * 1024;
 #endif
 
 // l0 的压缩触发阈值

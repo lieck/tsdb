@@ -40,7 +40,7 @@ public:
     ~TSDBEngineImpl() override;
 
 private:
-    int initialDirFd_;
+    int initial_dir_fd_;
 
     DBOptions *db_option_{};
 

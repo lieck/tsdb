@@ -24,8 +24,8 @@ namespace LindormContest {
         LOG_INFO("db engine construct");
 
         // 获取初始工作目录的文件描述符
-        initialDirFd_ = open(".", O_RDONLY);
-        if (initialDirFd_ == -1) {
+        initial_dir_fd_ = open(".", O_RDONLY);
+        if (initial_dir_fd_ == -1) {
             std::cerr << "Failed to open the initial working directory." << std::endl;
             std::terminate();
         }
@@ -90,6 +90,13 @@ namespace LindormContest {
     }
 
     auto TSDBEngineImpl::createTable(const std::string &tableName, const Schema &schema) -> int {
+        std::string schema_str;
+        for(auto &column : schema.columnTypeMap) {
+            schema_str += column.first + ":" + std::to_string(column.second) + ", ";
+        }
+
+        LOG_INFO("createTable %s\tschema = %s", tableName.c_str(), schema_str.c_str());
+
         if(shutdown_.load(std::memory_order_acquire)) {
             return -1;
         }
@@ -142,11 +149,11 @@ namespace LindormContest {
         }
 
         // 恢复默认工作目录
-        if (fchdir(initialDirFd_) != 0) {
+        if (fchdir(initial_dir_fd_) != 0) {
             std::cerr << "Failed to restore the initial working directory." << std::endl;
             std::terminate();
         }
-        close(initialDirFd_);
+        close(initial_dir_fd_);
 
         return 0;
     }
@@ -167,7 +174,7 @@ namespace LindormContest {
     }
 
     auto TSDBEngineImpl::executeLatestQuery(const LatestQueryRequest &pReadReq, std::vector<Row> &pReadRes) -> int {
-        LOG_INFO("executeLatestQuery");
+        // LOG_INFO("executeLatestQuery");
         if(shutdown_.load(std::memory_order_acquire)) {
             return -1;
         }
@@ -179,11 +186,17 @@ namespace LindormContest {
         }
 
         int result = table->second->ExecuteLatestQuery(pReadReq, pReadRes);
+
+        // LOG_INFO("executeLatestQuery OK");
         return result;
     }
 
     auto TSDBEngineImpl::executeTimeRangeQuery(const TimeRangeQueryRequest &trReadReq, std::vector<Row> &trReadRes) -> int {
-        LOG_INFO("executeTimeRangeQuery");
+        char vin_output[18];
+        std::memcpy(vin_output, trReadReq.vin.vin, 17);
+        vin_output[17] = '\0';
+
+        LOG_INFO("executeTimeRangeQuery %s\t[%ld:%ld)", vin_output, trReadReq.timeLowerBound, trReadReq.timeUpperBound);
         if(shutdown_.load(std::memory_order_acquire)) {
             return -1;
         }
@@ -199,6 +212,13 @@ namespace LindormContest {
     }
 
     TSDBEngineImpl::~TSDBEngineImpl() {
+        for(auto &table : tables_) {
+            delete table.second;
+        }
+        db_option_->bg_task_->Shutdown();
+
+        delete db_option_->block_cache_;
+        delete db_option_->table_cache_;
         delete db_option_;
     }
 

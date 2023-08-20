@@ -135,7 +135,7 @@ auto DirectoryExists(const std::string& directory) -> bool {
 }
 
 auto CreateTestTSDBEngine() -> TSDBEngine* {
-    std::string test_directory = "./db_test";
+    std::string test_directory = "./db";
     if(DirectoryExists(test_directory)) {
         RemoveDirectory(test_directory);
     }

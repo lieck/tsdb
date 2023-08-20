@@ -20,7 +20,7 @@ private:
 public:
     explicit Block(char* data, uint32_t size);
 
-    ~Block() { delete data_; }
+    ~Block() { delete []data_; }
 
     auto NewIterator() -> std::unique_ptr<Iterator>;
 
