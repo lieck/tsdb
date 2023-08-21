@@ -46,7 +46,7 @@ struct InternalKey {
 
     auto Encode() const -> std::string {
         std::string s;
-        s.append(vin_.vin);
+        s.append(vin_.vin, LindormContest::VIN_LENGTH);
         s.resize(LindormContest::VIN_LENGTH + 8);
         CodingUtil::PutInt64(const_cast<char *>(s.data() + LindormContest::VIN_LENGTH), timestamp_);
         return s;
