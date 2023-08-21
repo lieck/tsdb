@@ -29,7 +29,7 @@ namespace LindormContest {
 
 
 // SSTable name
-static std::string SSTABLE_NAME = "ljdb_sstable";
+static std::string SSTABLE_NAME = "/ljdb_sstable";
 #define GET_SSTABLE_NAME(file_number) (SSTABLE_NAME + "_" + std::to_string(file_number))
 
-}; // end namespace ljdb
+} // end namespace ljdb
