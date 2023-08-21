@@ -5,6 +5,7 @@
 
 #include "common/config.h"
 #include "common/macros.h"
+#include "common/logger.h"
 
 namespace LindormContest {
 
@@ -62,6 +63,10 @@ namespace LindormContest {
                 table_.erase(old->cache_id_);
                 usage_ -= old->charge_;
                 delete old;
+            }
+
+            if(usage_ > capacity_ * 1.2) {
+                LOG_WARN("cache usage limit exceeded");
             }
 
             cache_handle->in_hash_table_ = true;

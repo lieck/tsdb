@@ -31,6 +31,7 @@ public:
     virtual auto Next() -> void = 0;
 
     void RegisterCleanup(void (*deleter)(void*, void*), void *arg, void *value) {
+        ASSERT(deleter_ == nullptr, "deleter_ is not nullptr");
         deleter_ = deleter;
         deleter_arg_ = arg;
         deleter_value_ = value;
