@@ -20,22 +20,10 @@ namespace LindormContest {
      * The function's body can be modified.
      */
     TSDBEngineImpl::TSDBEngineImpl(const std::string &dataDirPath)
-            : TSDBEngine(dataDirPath) {
+            : TSDBEngine(dataDirPath), db_directory_(dataDirPath) {
         LOG_INFO("db engine construct");
 
-        // 获取初始工作目录的文件描述符
-        initial_dir_fd_ = open(".", O_RDONLY);
-        if (initial_dir_fd_ == -1) {
-            std::cerr << "Failed to open the initial working directory." << std::endl;
-            std::terminate();
-        }
-
-
-        int result = chdir(dataDirPath.c_str());
-        if(result != 0) {
-            LOG_ERROR("chdir failed");
-            throw Exception(ExceptionType::IO, "chdir failed");
-        }
+        SetDatabaseDirectory(dataDirPath);
     }
 
     auto TSDBEngineImpl::connect() -> int {
@@ -54,7 +42,7 @@ namespace LindormContest {
         if(tables_.empty()) {
             std::ifstream file;
             try {
-                file = DiskManager::OpenFile("manifest_file");
+                file = DiskManager::OpenFile("/manifest_file");
             } catch (Exception &e) {
                 if(e.Type() == ExceptionType::IO) {
                     LOG_INFO("manifest_file not found");
@@ -127,7 +115,7 @@ namespace LindormContest {
 
         // 写入元数据
         try {
-            std::ofstream file("manifest_file", std::ofstream::trunc);
+            std::ofstream file(db_directory_ + "/manifest_file", std::ofstream::trunc);
             if(!file.is_open()) {
                 LOG_ERROR("manifest_file open failed");
                 return -1;
@@ -147,14 +135,6 @@ namespace LindormContest {
             LOG_ERROR("manifest_file write failed");
             return -1;
         }
-
-        // 恢复默认工作目录
-        if (fchdir(initial_dir_fd_) != 0) {
-            std::cerr << "Failed to restore the initial working directory." << std::endl;
-            std::terminate();
-        }
-        close(initial_dir_fd_);
-
         return 0;
     }
 
@@ -191,7 +171,7 @@ namespace LindormContest {
         }
         lock.unlock();
 
-        int result = -1;
+        int result;
 
         try {
             result = table->second->ExecuteLatestQuery(pReadReq, pReadRes);

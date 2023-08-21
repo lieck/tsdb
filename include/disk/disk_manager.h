@@ -5,6 +5,8 @@
 
 namespace LindormContest {
 
+void SetDatabaseDirectory(const std::string &directory);
+
 class DiskManager {
 public:
     static auto OpenSSTableFile(file_number_t file_number) -> std::ifstream;

@@ -7,6 +7,11 @@
 
 namespace LindormContest {
 
+std::string db_directory = "./";
+
+void SetDatabaseDirectory(const std::string &directory) {
+    db_directory = directory;
+}
 
 auto DiskManager::CreateSSTableFile(file_number_t file_number) -> std::ofstream {
     std::string file_name = GET_SSTABLE_NAME(file_number);
@@ -19,23 +24,23 @@ auto DiskManager::OpenSSTableFile(file_number_t file_number) -> std::ifstream {
 }
 
 auto DiskManager::CreakWritableFile(const std::string& filename) -> std::ofstream {
-    std::ofstream file(filename);
+    std::ofstream file(db_directory + filename);
     if(!file.is_open()) {
-        throw Exception(ExceptionType::IO, "Could not create file: " + filename);
+        throw Exception(ExceptionType::IO, "Could not create file: " + db_directory + filename);
     }
     return file;
 }
 
 auto DiskManager::OpenFile(const std::string& filename) -> std::ifstream {
-    std::ifstream file(filename);
+    std::ifstream file(db_directory + filename);
     if(!file.is_open()) {
-        throw Exception(ExceptionType::IO, "Could not open file: " + filename);
+        throw Exception(ExceptionType::IO, "Could not open file: " + db_directory + filename);
     }
     return file;
 }
 
 auto DiskManager::RemoveFile(const std::string& filename) -> bool {
-    return std::remove(filename.c_str()) == 0;
+    return std::remove((db_directory + filename).c_str()) == 0;
 }
 
 void DiskManager::ReadBlock(std::ifstream &file, char *data, uint32_t size, uint32_t offset) {
