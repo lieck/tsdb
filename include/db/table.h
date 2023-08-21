@@ -40,15 +40,14 @@ private:
     };
 
     struct QueryRequest {
-        std::map<Vin, Row> vin_;
+        const std::vector<Vin> *vins_;
+        std::map<Vin, Row> vin_map_{};
         std::set<std::string> columns_;
         std::vector<Row> *result_;
 
-        QueryRequest(const std::vector<Vin> &vins, std::set<std::string> columns, std::vector<Row> *result)
-         : columns_(std::move(columns)), result_(result) {
-            for(auto &vin : vins) {
-                vin_[vin] = Row();
-            }
+        QueryRequest(const std::vector<Vin> *vins, std::set<std::string> columns, std::vector<Row> *result)
+         : columns_(std::move(columns)), result_(result), vins_(vins) {
+
         }
     };
 
@@ -76,13 +75,8 @@ public:
 
     auto TestGetTableMetaData() -> TableMetaData& { return table_meta_data_; }
 private:
-    // 查询 memtable 内复合条件的元素
-    auto MemTableQuery(QueryRequest &req, const std::shared_ptr<MemTable>& memtable) -> void;
-
     // 查询 memtable 内符合时间范围的元素
     auto MemTableRangeQuery(Table::RangeQueryRequest &req, const std::shared_ptr<MemTable>& memtable) -> void;
-
-    auto FileTableQuery(const FileMetaDataPtr& fileMetaData, QueryRequest &req) -> void;
 
     void FileTableRangeQuery(const FileMetaDataPtr& fileMetaData, Table::RangeQueryRequest &req);
 

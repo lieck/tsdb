@@ -40,8 +40,13 @@ void TableMetaData::Finalize() {
         }
     }
 
-    size_compaction_level_ = best_level;
+#ifdef DEBUG_MODE_CLOSE_COMPRESSION
+    size_compaction_score_ = 0;
+    size_compaction_score_ = -1;
+#else
     size_compaction_score_ = best_score;
+    size_compaction_level_ = best_level;
+#endif
 }
 
 void TableMetaData::SeekCompaction(int level, FileMetaDataPtr meta_data) {
@@ -54,16 +59,17 @@ void TableMetaData::SeekCompaction(int level, FileMetaDataPtr meta_data) {
 }
 
 auto TableMetaData::GenerateCompactionTask() -> CompactionTask* {
-    const bool size_compaction = size_compaction_score_ >= 1;
+    const bool size_compaction = size_compaction_score_ >= 1 && size_compaction_level_ >= 0;
     const bool seek_compaction = seek_compaction_level_ != -1;
 
     auto task = new CompactionTask();
 
-    auto files = GetFileMetaData(size_compaction_level_);
+    std::vector<FileMetaDataPtr> files;
 
     // 确定压缩文件的开始位置
     size_t start_idx = 0;
     if(size_compaction) {
+        files = GetFileMetaData(size_compaction_level_);
         task->level_ = size_compaction_level_;
         task->type_ = CompactionType::SizeCompaction;
 
@@ -74,6 +80,8 @@ auto TableMetaData::GenerateCompactionTask() -> CompactionTask* {
             }
         }
     } else if(seek_compaction) {
+        files = GetFileMetaData(seek_compaction_level_);
+
         task->level_ = seek_compaction_level_;
         task->type_ = CompactionType::SeekCompaction;
 
@@ -119,8 +127,6 @@ void TableMetaData::AddFileMetaData(int32_t level, const std::vector<FileMetaDat
 
 void TableMetaData::RemoveFileMetaData(int32_t level, const std::vector<FileMetaDataPtr> &file) {
     for(auto &f : file) {
-        // TODO 需要删除文件
-
         auto it = std::find(files_[level].begin(), files_[level].end(), f);
         if(it != files_[level].end()) {
             files_[level].erase(it);

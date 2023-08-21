@@ -168,13 +168,18 @@ namespace LindormContest {
         if(table == tables_.end()) {
             return -1;
         }
+        int result;
 
-        int result = table->second->Upsert(writeRequest);
+        try {
+            result = table->second->Upsert(writeRequest);
+        } catch (Exception &e) {
+            result = -1;
+            LOG_ERROR("Upsert failed : %s", e.what());
+        }
         return result;
     }
 
     auto TSDBEngineImpl::executeLatestQuery(const LatestQueryRequest &pReadReq, std::vector<Row> &pReadRes) -> int {
-        // LOG_INFO("executeLatestQuery");
         if(shutdown_.load(std::memory_order_acquire)) {
             return -1;
         }
@@ -184,10 +189,16 @@ namespace LindormContest {
         if(table == tables_.end()) {
             return -1;
         }
+        lock.unlock();
 
-        int result = table->second->ExecuteLatestQuery(pReadReq, pReadRes);
+        int result = -1;
 
-        // LOG_INFO("executeLatestQuery OK");
+        try {
+            result = table->second->ExecuteLatestQuery(pReadReq, pReadRes);
+        } catch (Exception &e) {
+            result = -1;
+            LOG_ERROR("Failed to execute: %s", e.what());
+        }
         return result;
     }
 
@@ -196,18 +207,28 @@ namespace LindormContest {
         std::memcpy(vin_output, trReadReq.vin.vin, 17);
         vin_output[17] = '\0';
 
-        LOG_INFO("executeTimeRangeQuery %s\t[%ld:%ld)", vin_output, trReadReq.timeLowerBound, trReadReq.timeUpperBound);
         if(shutdown_.load(std::memory_order_acquire)) {
+            LOG_INFO("executeTimeRangeQuery -1");
             return -1;
         }
 
         std::unique_lock<std::mutex> lock(mutex_);
         auto table = tables_.find(trReadReq.tableName);
         if(table == tables_.end()) {
+            LOG_INFO("executeTimeRangeQuery -1");
             return -1;
         }
+        lock.unlock();
 
-        int result = table->second->ExecuteTimeRangeQuery(trReadReq, trReadRes);
+        int result;
+
+        try {
+            result = table->second->ExecuteTimeRangeQuery(trReadReq, trReadRes);
+        } catch (Exception &e) {
+            result = -1;
+            LOG_ERROR("ExecuteTimeRangeQuery -1, %s", e.what());
+        }
+
         return result;
     }
 

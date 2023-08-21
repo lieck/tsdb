@@ -17,7 +17,7 @@ namespace LindormContest {
 
 // 返回每层的最大文件大小
 static auto MaxBytesForLevel(int level) -> double {
-#ifndef NDEBUG
+#ifdef DEBUG_MODE
     double result = 4. * MAX_FILE_SIZE;
     while (level > 1) {
         result *= 4;
@@ -55,7 +55,8 @@ struct CompactionTask {
 
 class TableMetaData {
 public:
-    auto GetFileMetaData(size_t level) const -> std::vector<FileMetaDataPtr> {
+    auto GetFileMetaData(int level) const -> std::vector<FileMetaDataPtr> {
+        ASSERT(level < K_NUM_LEVELS, "Invalid level");
         return files_[level];
     }
 
@@ -89,10 +90,18 @@ public:
     // 生成压缩计划
     auto GenerateCompactionTask() -> CompactionTask*;
 
+    auto GetEraseFileQueue() -> std::queue<file_number_t>& {
+        return erase_file_queue_;
+    }
+
     // sstable
     std::vector<FileMetaDataPtr> files_[K_NUM_LEVELS];
 
 private:
+    // 需要删除的文件
+    // TODO 使用引用计数将过期文件及时删除
+    std::queue<file_number_t> erase_file_queue_;
+
     // Size Compaction 的压缩分数
     int size_compaction_level_{-1};
     double size_compaction_score_{-1};
