@@ -27,7 +27,7 @@ namespace LindormContest {
         int upsert(const WriteRequest &wReq) override {
             std::scoped_lock<std::mutex> lock(lock_);
             for(auto &row : wReq.rows) {
-                data_[row.vin][row.timestamp] = row;
+                data_[row.vin][row.timestamp] = 1;
             }
             return 0;
         }
@@ -42,7 +42,10 @@ namespace LindormContest {
 
                 auto it = vin_data.rbegin();
                 if(it != vin_data.rend()) {
-                    pReadRes.push_back(it->second);
+                    Row row;
+                    row.vin = vin;
+                    row.timestamp = it->first;
+                    pReadRes.push_back(row);
                 }
 
             }
@@ -54,7 +57,10 @@ namespace LindormContest {
             auto &vin_data = data_[trReadReq.vin];
             auto it = vin_data.lower_bound(trReadReq.timeLowerBound);
             while(it != vin_data.end() && it->first < trReadReq.timeUpperBound) {
-                trReadRes.push_back(it->second);
+                Row row;
+                row.vin = trReadReq.vin;
+                row.timestamp = it->first;
+                trReadRes.push_back(row);
                 it++;
             }
             return 0;
@@ -64,6 +70,6 @@ namespace LindormContest {
 
     private:
         std::mutex lock_;
-        std::map<Vin, std::map<int64_t, Row>> data_;
+        std::map<Vin, std::map<int64_t, int>> data_;
     };
 }

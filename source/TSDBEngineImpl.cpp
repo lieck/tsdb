@@ -183,9 +183,6 @@ namespace LindormContest {
     }
 
     auto TSDBEngineImpl::executeTimeRangeQuery(const TimeRangeQueryRequest &trReadReq, std::vector<Row> &trReadRes) -> int {
-        char vin_output[18];
-        std::memcpy(vin_output, trReadReq.vin.vin, 17);
-        vin_output[17] = '\0';
 
         if(shutdown_.load(std::memory_order_acquire)) {
             LOG_INFO("executeTimeRangeQuery -1");

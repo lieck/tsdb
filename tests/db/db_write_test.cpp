@@ -6,7 +6,6 @@
 
 namespace LindormContest {
 
-
     TEST(DBWriterTest, BasicAssertions) {
 
         auto engine = CreateTestTSDBEngine();
@@ -132,6 +131,7 @@ namespace LindormContest {
         engine->shutdown();
         delete engine;
         engine = new TSDBEngineImpl("./db");
+        engine->connect();
 
         for(int i = 0; i < 100000; i++) {
             int key = rand() % 10000;

@@ -18,7 +18,7 @@ namespace LindormContest {
 class Table {
 private:
     struct RangeQueryRequest {
-        const Vin *vin_;
+        const Vin vin_;
         int64_t time_lower_bound_;
         int64_t time_upper_bound_;
 
@@ -30,12 +30,12 @@ private:
 
         std::set<int64_t> time_set_;
 
-        RangeQueryRequest(const Vin *vin, int64_t time_lower_bound, int64_t time_upper_bound,
+        RangeQueryRequest(const Vin vin, int64_t time_lower_bound, int64_t time_upper_bound,
                           const std::set<std::string> *columns, std::vector<Row> *result)
          : vin_(vin), time_lower_bound_(time_lower_bound), time_upper_bound_(time_upper_bound), columns_(columns),
          result_(result) {
-            lower_bound_ = InternalKey(*vin_, time_lower_bound_);
-            upper_bound_ = InternalKey(*vin_, time_upper_bound_);
+            lower_bound_ = InternalKey(vin_, time_lower_bound_);
+            upper_bound_ = InternalKey(vin_, time_upper_bound_);
         }
     };
 

@@ -135,7 +135,7 @@ auto Table::ExecuteLatestQuery(const LatestQueryRequest &pReadReq, std::vector<R
 }
 
 auto Table::ExecuteTimeRangeQuery(const TimeRangeQueryRequest &trReadReq, std::vector<Row> &trReadRes) -> int {
-    auto query = RangeQueryRequest(&trReadReq.vin, trReadReq.timeLowerBound, trReadReq.timeUpperBound,
+    auto query = RangeQueryRequest(trReadReq.vin, trReadReq.timeLowerBound, trReadReq.timeUpperBound,
                                    &trReadReq.requestedColumns, &trReadRes);
 
     std::unique_lock<std::mutex> lock(mutex_);
@@ -177,10 +177,10 @@ auto Table::ExecuteTimeRangeQuery(const TimeRangeQueryRequest &trReadReq, std::v
 
 auto Table::MemTableRangeQuery(Table::RangeQueryRequest &req, const std::shared_ptr<MemTable>& mem) -> void {
     auto iter = mem->NewIterator();
-    iter->Seek(InternalKey(*req.vin_, MAX_TIMESTAMP));
+    iter->Seek(InternalKey(req.vin_, MAX_TIMESTAMP));
     while(iter->Valid()) {
         auto key = iter->GetKey();
-        if(key.vin_ != *req.vin_) {
+        if(key.vin_ != req.vin_) {
             break;
         }
 
@@ -206,10 +206,10 @@ void Table::FileTableRangeQuery(const FileMetaDataPtr& fileMetaData, Table::Rang
 //    }
 
     auto iter = table_cache_->NewTableIterator(fileMetaData);
-    iter->Seek(InternalKey(*req.vin_, MAX_TIMESTAMP));
+    iter->Seek(InternalKey(req.vin_, MAX_TIMESTAMP));
     while(iter->Valid()) {
         auto key = iter->GetKey();
-        if(key.vin_ != *req.vin_) {
+        if(key.vin_ != req.vin_) {
             break;
         }
 
@@ -520,6 +520,10 @@ auto Table::Shutdown() -> int {
                 i.emplace_back(std::make_shared<FileMetaData>(temp));
             }
         }
+
+        std::scoped_lock<std::mutex> lock(mutex_);
+        table_meta_data_.Finalize();
+        MaybeScheduleCompaction();
     }
 
 

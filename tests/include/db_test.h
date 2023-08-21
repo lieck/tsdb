@@ -133,11 +133,13 @@ public:
         ASSERT_EQ(test_engine_->executeLatestQuery(pReadReq, test_results), 0);
         auto end_time = std::chrono::high_resolution_clock::now();
 
-        ASSERT_EQ(check_results.size(), test_results.size());
-
         std::map<std::pair<Vin, int64_t>, Row> check_map;
         for(auto & check_result : check_results) {
             check_map[std::make_pair(check_result.vin, check_result.timestamp)] = check_result;
+        }
+
+        if(check_map.size() != test_results.size()) {
+            ASSERT_EQ(check_map.size(), test_results.size());
         }
 
         for(int i = 0; i < test_results.size(); ++i) {
