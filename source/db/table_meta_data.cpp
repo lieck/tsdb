@@ -42,7 +42,7 @@ void TableMetaData::Finalize() {
 
 #ifdef DEBUG_MODE_CLOSE_COMPRESSION
     size_compaction_score_ = 0;
-    size_compaction_score_ = -1;
+    size_compaction_level_ = -1;
 #else
     size_compaction_score_ = best_score;
     size_compaction_level_ = best_level;
@@ -62,6 +62,10 @@ auto TableMetaData::GenerateCompactionTask() -> CompactionTask* {
     const bool size_compaction = size_compaction_score_ >= 1 && size_compaction_level_ >= 0;
     const bool seek_compaction = seek_compaction_level_ != -1;
 
+    if(!size_compaction && !seek_compaction) {
+        return nullptr;
+    }
+
     auto task = new CompactionTask();
 
     std::vector<FileMetaDataPtr> files;
@@ -79,7 +83,7 @@ auto TableMetaData::GenerateCompactionTask() -> CompactionTask* {
                 break;
             }
         }
-    } else if(seek_compaction) {
+    } else {
         files = GetFileMetaData(seek_compaction_level_);
 
         task->level_ = seek_compaction_level_;
@@ -91,9 +95,6 @@ auto TableMetaData::GenerateCompactionTask() -> CompactionTask* {
                 break;
             }
         }
-    } else {
-        delete task;
-        return nullptr;
     }
 
     // 确定压缩文件的结束位置
@@ -122,7 +123,17 @@ auto TableMetaData::GenerateCompactionTask() -> CompactionTask* {
 
 void TableMetaData::AddFileMetaData(int32_t level, const std::vector<FileMetaDataPtr> &file) {
     files_[level].insert(files_[level].end(), file.begin(), file.end());
-    std::sort(files_[level].begin(), files_[level].end());
+    std::sort(files_[level].begin(), files_[level].end(), [](const auto &a, const auto &b) {
+        return a->GetSmallest() < b->GetSmallest();
+    });
+
+    // check
+    if(level >= 1) {
+        for(int i = 1; i < files_[level].size(); i++) {
+            ASSERT(files_[level][i - 1]->GetLargest() < files_[level][i]->GetSmallest()
+                   || files_[level][i - 1]->GetLargest() == files_[level][i]->GetSmallest(), "error");
+        }
+    }
 }
 
 void TableMetaData::RemoveFileMetaData(int32_t level, const std::vector<FileMetaDataPtr> &file) {

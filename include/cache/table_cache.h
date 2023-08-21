@@ -31,7 +31,7 @@ public:
     auto NewTableIterator(const FileMetaDataPtr& file_meta_data) -> std::unique_ptr<Iterator>;
 
 private:
-    auto FindTable(const FileMetaDataPtr& file_meta_data) -> SSTable*;
+    auto FindTable(const FileMetaDataPtr& file_meta_data) -> CacheHandle<SSTable>*;
 
     Cache<Block> *block_cache_;
 

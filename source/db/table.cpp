@@ -307,12 +307,26 @@ auto Table::DoManualCompaction(CompactionTask *task) -> bool {
     LOG_DEBUG("DoManualCompaction level: %d", task->level_);
 
     if(task->input_files_[1].empty()) {
-        task->output_files_ = task->input_files_[0];
-        LOG_DEBUG("DoManualCompaction level: %d, no need to compact", task->level_);
-        return true;
+        // input files[0] 不存在重叠
+        std::sort(task->input_files_[0].begin(), task->input_files_[0].end());
+
+        bool overwrite = true;
+        for(size_t i = 1; i < task->input_files_[0].size(); i++) {
+            if(task->input_files_[0][i - 1]->GetLargest() > task->input_files_[0][i]->GetSmallest()) {
+                overwrite = false;
+                break;
+            }
+        }
+
+        if(overwrite) {
+            task->output_files_ = task->input_files_[0];
+            LOG_DEBUG("DoManualCompaction level: %d, no need to compact", task->level_);
+            return true;
+        }
     }
 
-    std::vector<std::unique_ptr<Iterator>> input_iters(2);
+    std::vector<std::unique_ptr<Iterator>> input_iters;
+    input_iters.reserve(2);
 
     // 生成迭代器
     for(size_t i = 0; i < 2; i++) {
@@ -321,17 +335,20 @@ auto Table::DoManualCompaction(CompactionTask *task) -> bool {
             for(auto &file : task->input_files_[i]) {
                 iters.emplace_back(table_cache_->NewTableIterator(file));
             }
-            input_iters[0] = NewMergingIterator(std::move(iters));
-        } else {
+            input_iters.push_back(NewMergingIterator(std::move(iters)));
+        } else if(!task->input_files_[i].empty()) {
             auto file_iter = NewFileMetaDataIterator(task->input_files_[i]);
-            input_iters[i] = NewTwoLevelIterator(std::move(file_iter), GetFileIterator, options_->table_cache_);
+            input_iters.push_back(NewTwoLevelIterator(std::move(file_iter), GetFileIterator, options_->table_cache_));
         }
     }
 
-    auto input_iter = NewMergingIterator(std::move(input_iters));
-    if(input_iter == nullptr) {
-        return false;
+    std::unique_ptr<Iterator> input_iter = nullptr;
+    if(input_iters.size() >= 2) {
+        input_iter = NewMergingIterator(std::move(input_iters));
+    } else {
+        input_iter = std::move(input_iters[0]);
     }
+
     input_iter->SeekToFirst();
 
     SStableBuilder *builder = nullptr;

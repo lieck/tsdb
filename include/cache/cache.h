@@ -66,7 +66,7 @@ namespace LindormContest {
             }
 
             if(usage_ > capacity_ * 1.2) {
-                LOG_WARN("cache usage limit exceeded");
+                LOG_WARN("cache usage limit exceeded, usage = %ld, capacity = %ld", usage_, capacity_);
             }
 
             cache_handle->in_hash_table_ = true;

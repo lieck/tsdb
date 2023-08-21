@@ -144,6 +144,8 @@ namespace LindormContest {
 
         }
 
+        std::map<Vin, std::map<timestamp_t, Row>> data_{};
+
     private:
         std::string name_;
         TestSchemaType type_;
@@ -152,7 +154,7 @@ namespace LindormContest {
 
         std::mutex mutex_;
 
-        std::map<Vin, std::map<timestamp_t, Row>> data_{};
+
     };
 
 

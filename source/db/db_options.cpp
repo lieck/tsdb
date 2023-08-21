@@ -4,8 +4,9 @@ namespace LindormContest {
 
     auto NewDBOptions() -> DBOptions * {
         auto db_options = new DBOptions();
-        db_options->block_cache_ = new Cache<Block>(1 << 29);
-        db_options->table_cache_ = new TableCache(1024, db_options->block_cache_);
+        db_options->block_cache_ = new Cache<Block>(1 << 25);
+//        db_options->block_cache_ = nullptr;
+        db_options->table_cache_ = new TableCache(128, db_options->block_cache_);
         db_options->bg_task_ = new BackgroundTask();
         return db_options;
     }

@@ -20,15 +20,17 @@ auto GenerateSchema(TestSchemaType type) -> Schema {
         schema.columnTypeMap["c2"] = LindormContest::ColumnType::COLUMN_TYPE_STRING;
         schema.columnTypeMap["c3"] = LindormContest::ColumnType::COLUMN_TYPE_DOUBLE_FLOAT;
     } else if(type == TestSchemaType::Long) {
-        schema.columnTypeMap["col_integer_1"] = LindormContest::ColumnType::COLUMN_TYPE_INTEGER;
-        schema.columnTypeMap["col_integer_2"] = LindormContest::ColumnType::COLUMN_TYPE_INTEGER;
-        schema.columnTypeMap["col_integer_3"] = LindormContest::ColumnType::COLUMN_TYPE_INTEGER;
-        schema.columnTypeMap["col_string_1"] = LindormContest::ColumnType::COLUMN_TYPE_STRING;
-        schema.columnTypeMap["col_string_2"] = LindormContest::ColumnType::COLUMN_TYPE_STRING;
-        schema.columnTypeMap["col_string_3"] = LindormContest::ColumnType::COLUMN_TYPE_STRING;
-        schema.columnTypeMap["col_double_1"] = LindormContest::ColumnType::COLUMN_TYPE_DOUBLE_FLOAT;
-        schema.columnTypeMap["col_double_2"] = LindormContest::ColumnType::COLUMN_TYPE_DOUBLE_FLOAT;
-        schema.columnTypeMap["col_double_3"] = LindormContest::ColumnType::COLUMN_TYPE_DOUBLE_FLOAT;
+        for(int i = 0; i < 6; i++) {
+            schema.columnTypeMap["col_string_" + std::to_string(i)] = LindormContest::ColumnType::COLUMN_TYPE_STRING;
+        }
+
+        for(int i = 0; i < 45; i++) {
+            schema.columnTypeMap["col_integer_" + std::to_string(i)] = LindormContest::ColumnType::COLUMN_TYPE_INTEGER;
+        }
+
+        for(int i = 0; i < 9; i++) {
+            schema.columnTypeMap["col_double_" + std::to_string(i)] = LindormContest::ColumnType::COLUMN_TYPE_DOUBLE_FLOAT;
+        }
     }
 
     return schema;
@@ -43,18 +45,18 @@ auto GetRequestedColumns(TestSchemaType type) -> std::set<std::string> {
         ret.insert("c1");
         ret.insert("c2");
         ret.insert("c3");
-    } else if(type == TestSchemaType::Long) {
-        ret.insert("col_integer_1");
-        ret.insert("col_integer_2");
-        ret.insert("col_integer_3");
-        ret.insert("col_string_1");
-        ret.insert("col_string_2");
-        ret.insert("col_string_3");
-        ret.insert("col_double_1");
-        ret.insert("col_double_2");
-        ret.insert("col_double_3");
     }
+    return ret;
+}
 
+auto GetRandomColumns(const Schema &schema) -> std::set<std::string> {
+    std::set<std::string> ret;
+    for(const auto &column : schema.columnTypeMap) {
+        int is = rand() % 10;
+        if(is < 5) {
+            ret.insert(column.first);
+        }
+    }
     return ret;
 }
 
@@ -75,6 +77,26 @@ auto GenerateTestRow(Row &row, TestSchemaType type) {
         row.columns["col_double_1"] = ColumnValue(1.0);
         row.columns["col_double_2"] = ColumnValue(2.0);
         row.columns["col_double_3"] = ColumnValue(3.0);
+    }
+}
+
+auto GenerateRandomRow(const Schema &schema, Row &row) {
+    for(const auto &column : schema.columnTypeMap) {
+        if(column.second == LindormContest::ColumnType::COLUMN_TYPE_INTEGER) {
+            row.columns[column.first] = ColumnValue(rand() % 100);
+        } else if(column.second == LindormContest::ColumnType::COLUMN_TYPE_STRING) {
+            std::string value = "string_value_" + std::to_string(rand() % 100);
+
+            int rand_value = rand() % 10;
+            while(value.size() < 1000 && rand_value < 3) {
+                value += "string_value_";
+                rand_value = rand() % 10;
+            }
+
+            row.columns[column.first] = ColumnValue(value);
+        } else if(column.second == LindormContest::ColumnType::COLUMN_TYPE_DOUBLE_FLOAT) {
+            row.columns[column.first] = ColumnValue(rand() % 100 + 0.1);
+        }
     }
 }
 

@@ -4,8 +4,8 @@
 
 namespace LindormContest {
 
-//#define DEBUG_MODE
-#define DEBUG_MODE_CLOSE_COMPRESSION
+#define DEBUG_MODE
+//#define DEBUG_MODE_CLOSE_COMPRESSION
 
 
 static constexpr uint32_t SSTABLE_BLOCK_CAPACITY = 4096;
