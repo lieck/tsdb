@@ -8,7 +8,11 @@
 #ifndef LINDORMTSDBCONTESTCPP_TSDBENGINEIMPL_H
 #define LINDORMTSDBCONTESTCPP_TSDBENGINEIMPL_H
 
+#include <unordered_map>
+#include <mutex>
 #include "TSDBEngine.hpp"
+#include "db/background.h"
+#include "db/table.h"
 
 namespace LindormContest {
 
@@ -21,21 +25,30 @@ public:
      */
     explicit TSDBEngineImpl(const std::string &dataDirPath);
 
-    int connect() override;
+    auto connect() -> int override;
 
-    int createTable(const std::string &tableName, const Schema &schema) override;
+    auto createTable(const std::string &tableName, const Schema &schema) -> int override;
 
-    int shutdown() override;
+    auto shutdown() -> int override;
 
-    int upsert(const WriteRequest &wReq) override;
+    auto upsert(const WriteRequest &wReq) -> int override;
 
-    int executeLatestQuery(const LatestQueryRequest &pReadReq, std::vector<Row> &pReadRes) override;
+    auto executeLatestQuery(const LatestQueryRequest &pReadReq, std::vector<Row> &pReadRes) -> int override;
 
-    int executeTimeRangeQuery(const TimeRangeQueryRequest &trReadReq, std::vector<Row> &trReadRes) override;
+    auto executeTimeRangeQuery(const TimeRangeQueryRequest &trReadReq, std::vector<Row> &trReadRes) -> int override;
 
     ~TSDBEngineImpl() override;
+
+private:
+    std::string db_directory_;
+    DBOptions *db_option_{};
+
+    std::atomic_bool shutdown_{false};
+
+    std::mutex mutex_;
+    std::unordered_map<std::string, Table*> tables_;
 }; // End class TSDBEngineImpl.
 
-}
+}; // End namespace LindormContest.
 
 #endif //LINDORMTSDBCONTESTCPP_TSDBENGINEIMPL_H
