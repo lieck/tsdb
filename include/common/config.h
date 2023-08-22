@@ -4,7 +4,7 @@
 
 namespace LindormContest {
 
-#define DEBUG_MODE
+//#define DEBUG_MODE
 //#define DEBUG_MODE_CLOSE_COMPRESSION
 
 

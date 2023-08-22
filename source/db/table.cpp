@@ -26,7 +26,7 @@ auto Table::Upsert(const WriteRequest &wReq) -> int {
 
     // 若其他线程正在写入, 则等待
     write_queue_.push(&wReq);
-    while(write_queue_.front() != &wReq || imm_.size() >= 2) {
+    while(write_queue_.front() != &wReq || imm_.size() >= 5) {
         cv_.wait(lock);
     }
 
@@ -51,11 +51,12 @@ auto Table::Upsert(const WriteRequest &wReq) -> int {
             mem_->Unlock();
 
             LOG_INFO("memtable is full, flush to immtable");
+
+            StartMemTableCompaction(mem_);
+
             imm_.push_back(mem_);
             mem_ = std::make_shared<MemTable>();
             mem_->Lock();
-
-            MaybeScheduleCompaction();
             lock.unlock();
         }
 
@@ -88,8 +89,12 @@ auto Table::ExecuteLatestQuery(const LatestQueryRequest &pReadReq, std::vector<R
     lock.unlock();
 
 
-    auto query_func = [this](std::unique_ptr<Iterator> iter, Table::QueryRequest &req) {
+    auto query_func = [this](std::unique_ptr<Iterator> iter, Table::QueryRequest &req, int64_t max_timestamp) {
         for(auto &vin : *req.vins_) {
+            if(max_timestamp != -1 && req.vin_map_.count(vin) != 0 && req.vin_map_[vin].timestamp >= max_timestamp) {
+                continue;
+            }
+
             iter->Seek(InternalKey(vin, MAX_TIMESTAMP));
             if(iter->Valid()) {
                 auto key = iter->GetKey();
@@ -110,20 +115,20 @@ auto Table::ExecuteLatestQuery(const LatestQueryRequest &pReadReq, std::vector<R
     // mem 需要加锁
     if(mem_table != nullptr) {
         mem_table->Lock();
-        query_func(mem_table->NewIterator(), query);
+        query_func(mem_table->NewIterator(), query, -1);
         mem_table->Unlock();
     }
 
     // 搜索 imm
     for(auto &imm : imm_table) {
-        query_func(imm->NewIterator(), query);
+        query_func(imm->NewIterator(), query, -1);
     }
 
     // 搜索 sstable
     for(auto & i : sstable) {
         for(const auto& f : i) {
             auto iter = table_cache_->NewTableIterator(f);
-            query_func(std::move(iter), query);
+            query_func(std::move(iter), query, f->max_timestamp_);
         }
     }
 
@@ -200,10 +205,10 @@ auto Table::MemTableRangeQuery(Table::RangeQueryRequest &req, const std::shared_
 }
 
 void Table::FileTableRangeQuery(const FileMetaDataPtr& fileMetaData, Table::RangeQueryRequest &req) {
-//    if(fileMetaData->largest_ < req.lower_bound_ || req.upper_bound_ < fileMetaData->smallest_
-//    || req.upper_bound_ == fileMetaData->smallest_) {
-//        return;
-//    }
+    if(fileMetaData->largest_ < req.lower_bound_ || req.upper_bound_ < fileMetaData->smallest_
+    || req.upper_bound_ == fileMetaData->smallest_) {
+        return;
+    }
 
     auto iter = table_cache_->NewTableIterator(fileMetaData);
     iter->Seek(InternalKey(req.vin_, MAX_TIMESTAMP));
@@ -227,8 +232,13 @@ void Table::FileTableRangeQuery(const FileMetaDataPtr& fileMetaData, Table::Rang
     }
 }
 
+
 void Table::MaybeScheduleCompaction() {
-    if(!imm_.empty() || (table_meta_data_.ExistCompactionTask() && !is_shutting_down_.load(std::memory_order_acquire))) {
+    if(compaction_thread_count_ != 0) {
+        return;
+    }
+
+    if(table_meta_data_.ExistCompactionTask() && !is_shutting_down_.load(std::memory_order_acquire)) {
         options_->bg_task_->Schedule(&Table::BGWork, this);
     }
 }
@@ -247,30 +257,30 @@ void Table::BackgroundCall() {
 
 auto Table::BackgroundCompaction(std::unique_lock<std::mutex> &lock) -> void {
     // 若有正在进行的压缩任务, 则等待
-    while(is_compaction_running_) {
+    while(compaction_thread_count_ > 0) {
         cv_.wait(lock);
     }
 
     // Minor Compaction
-    if(!imm_.empty()) {
-        // TODO(lieck) 假设存在多个 immtable 应该同时压缩
-        auto compaction_mem = imm_[0];
-        is_compaction_running_ = true;
-        lock.unlock();
-
-        // 开始压缩
-        auto file_meta = CompactMemTable(compaction_mem);
-
-        lock.lock();
-        is_compaction_running_ = false;
-        cv_.notify_all();
-
-        // 更新元数据
-        imm_.erase(imm_.begin());
-        table_meta_data_.AddFileMetaData(0, {file_meta});
-        LOG_DEBUG("Minor Compaction Done");
-        return;
-    }
+//    if(!imm_.empty()) {
+//        // TODO(lieck) 假设存在多个 immtable 应该同时压缩
+//        auto compaction_mem = imm_[0];
+//        is_compaction_running_ = true;
+//        lock.unlock();
+//
+//        // 开始压缩
+//        auto file_meta = CompactMemTable(compaction_mem);
+//
+//        lock.lock();
+//        is_compaction_running_ = false;
+//        cv_.notify_all();
+//
+//        // 更新元数据
+//        imm_.erase(imm_.begin());
+//        table_meta_data_.AddFileMetaData(0, {file_meta});
+//        LOG_DEBUG("Minor Compaction Done");
+//        return;
+//    }
 
     // 退出时只允许压缩 memtable
     if(is_shutting_down_.load(std::memory_order_acquire)) {
@@ -283,19 +293,28 @@ auto Table::BackgroundCompaction(std::unique_lock<std::mutex> &lock) -> void {
         return;
     }
 
-    is_compaction_running_ = true;
+    compaction_thread_count_++;
     lock.unlock();
 
     auto result = DoManualCompaction(task);
 
     lock.lock();
-    is_compaction_running_ = false;
+    compaction_thread_count_--;
     cv_.notify_all();
 
     if(result) {
         table_meta_data_.RemoveFileMetaData(task->level_, task->input_files_[0]);
         table_meta_data_.RemoveFileMetaData(task->level_ + 1, task->input_files_[1]);
         table_meta_data_.AddFileMetaData(task->level_ + 1, task->output_files_);
+
+        if(task->need_delete_) {
+            for(auto &file : task->input_files_[0]) {
+                table_meta_data_.GetEraseFileQueue().push(file->GetFileNumber());
+            }
+            for(auto &file : task->input_files_[1]) {
+                table_meta_data_.GetEraseFileQueue().push(file->GetFileNumber());
+            }
+        }
 
         if(task->type_ == CompactionType::SeekCompaction) {
             table_meta_data_.ClearCompaction();
@@ -320,6 +339,7 @@ auto Table::DoManualCompaction(CompactionTask *task) -> bool {
 
         if(overwrite) {
             task->output_files_ = task->input_files_[0];
+            task->need_delete_ = false;
             LOG_DEBUG("DoManualCompaction level: %d, no need to compact", task->level_);
             return true;
         }
@@ -354,6 +374,7 @@ auto Table::DoManualCompaction(CompactionTask *task) -> bool {
     SStableBuilder *builder = nullptr;
     FileMetaData *file_meta_data = nullptr;
     InternalKey largest;
+    int64_t max_timestamp = -1;
 
     while(input_iter->Valid()) {
         if(builder == nullptr || builder->EstimatedSize() >= MAX_FILE_SIZE) {
@@ -364,9 +385,9 @@ auto Table::DoManualCompaction(CompactionTask *task) -> bool {
                 file_meta_data->file_size_ = sstable->GetFileSize();
                 task->output_files_.emplace_back(file_meta_data);
 
-//                if(options_->table_cache_ != nullptr) {
-//                    options_->table_cache_->AddSSTable(std::move(sstable));
-//                }
+                if(options_->table_cache_ != nullptr) {
+                    options_->table_cache_->AddSSTable(std::move(sstable));
+                }
 
                 delete builder;
             }
@@ -376,9 +397,12 @@ auto Table::DoManualCompaction(CompactionTask *task) -> bool {
             file_meta_data = new FileMetaData();
             file_meta_data->file_number_ = file_number;
             file_meta_data->smallest_ = input_iter->GetKey();
+            file_meta_data->max_timestamp_ = max_timestamp;
+
         }
 
         largest = input_iter->GetKey();
+        max_timestamp = std::max(max_timestamp, input_iter->GetKey().timestamp_);
         auto value = input_iter->GetValue();
         builder->Add(largest, value);
 
@@ -387,9 +411,9 @@ auto Table::DoManualCompaction(CompactionTask *task) -> bool {
 
     if(builder != nullptr) {
         auto sstable = builder->Builder();
-
         file_meta_data->largest_ = largest;
         file_meta_data->file_size_ = sstable->GetFileSize();
+        file_meta_data->max_timestamp_ = max_timestamp;
         task->output_files_.emplace_back(file_meta_data);
 
         delete builder;
@@ -398,6 +422,28 @@ auto Table::DoManualCompaction(CompactionTask *task) -> bool {
 
     return true;
 }
+
+
+void Table::StartMemTableCompaction(const std::shared_ptr<MemTable> mem) {
+    compaction_thread_count_++;
+
+    std::thread([this, mem] {
+        auto file_meta = CompactMemTable(mem);
+
+        std::scoped_lock<std::mutex> lock(mutex_);
+        compaction_thread_count_--;
+        ASSERT(compaction_thread_count_ >= 0, "compaction_thread_count should");
+        cv_.notify_all();
+
+        // 更新元数据
+        auto iter = std::find(imm_.begin(), imm_.end(), mem);
+        imm_.erase(iter);
+        table_meta_data_.AddFileMetaData(0, {file_meta});
+        table_meta_data_.Finalize();
+    }).detach();
+}
+
+
 
 auto Table::CompactMemTable(const std::shared_ptr<MemTable> &mem) -> FileMetaDataPtr {
     LOG_INFO("Compact MemTable table");
@@ -409,17 +455,19 @@ auto Table::CompactMemTable(const std::shared_ptr<MemTable> &mem) -> FileMetaDat
 
     InternalKey start_key = iter->GetKey();
     InternalKey end_key;
+    int64_t max_timestamp = 0;
 
     while(iter->Valid()) {
         end_key = iter->GetKey();
+        max_timestamp = std::max(max_timestamp, iter->GetKey().timestamp_);
         std::string value = iter->GetValue();
         builder.Add(iter->GetKey(), value);
         iter->Next();
     }
 
     auto sstable = builder.Builder();
-    auto file_meta_data = std::make_shared<FileMetaData>(file_number, start_key, end_key, sstable->GetFileSize());
-    // table_cache_->AddSSTable(std::move(sstable));
+    auto file_meta_data = std::make_shared<FileMetaData>(file_number, start_key, end_key, sstable->GetFileSize(), max_timestamp);
+    table_cache_->AddSSTable(std::move(sstable));
 
     return file_meta_data;
 }
@@ -436,9 +484,15 @@ auto Table::Shutdown() -> int {
     }
 
     if(mem_ != nullptr) {
+        auto mem_table = mem_;
         imm_.push_back(mem_);
         mem_ = nullptr;
-        MaybeScheduleCompaction();
+        StartMemTableCompaction(mem_table);
+    }
+
+    // 等待压缩任务完成
+    while(compaction_thread_count_ > 0) {
+        cv_.wait(lock);
     }
 
     return 0;
@@ -525,6 +579,16 @@ auto Table::Shutdown() -> int {
         table_meta_data_.Finalize();
         MaybeScheduleCompaction();
     }
+
+    void Table::EraseSSTableFile() {
+        auto q = table_meta_data_.GetEraseFileQueue();
+        while(!q.empty()) {
+            DiskManager::RemoveSSTableFile(q.front());
+            q.pop();
+        }
+    }
+
+
 
 
 }  // namespace LindormContest

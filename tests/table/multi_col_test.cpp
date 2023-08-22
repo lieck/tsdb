@@ -26,7 +26,7 @@ namespace LindormContest {
         }
 
         {
-            TestTableOperator test("test", TestSchemaType::Long);
+            TestTableOperator test("test", TestSchemaType::Complex);
             auto table = test.GenerateTable(options);
 
             for(int i = 1; i < 100; i++) {
@@ -62,7 +62,7 @@ namespace LindormContest {
         }
 
         {
-            TestTableOperator test("test", TestSchemaType::Long);
+            TestTableOperator test("test", TestSchemaType::Complex);
             auto table = test.GenerateTable(options);
 
             for(int i = 1; i < 100; i++) {

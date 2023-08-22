@@ -105,7 +105,7 @@ auto GenerateVin(int64_t key) -> Vin {
     for(char & i : ret.vin) {
         i = 'x';
     }
-    ret.vin[16] = '\0';
+    // ret.vin[16] = '\0';
 
     auto k = "key-" + std::to_string(key);
     k.copy(ret.vin, k.size());
