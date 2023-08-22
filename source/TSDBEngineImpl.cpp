@@ -135,6 +135,11 @@ namespace LindormContest {
             LOG_ERROR("manifest_file write failed");
             return -1;
         }
+
+        for(auto &table : tables_) {
+            table.second->EraseSSTableFile();
+        }
+
         return 0;
     }
 

@@ -51,6 +51,9 @@ struct CompactionTask {
 
     // 压缩的输出文件
     std::vector<FileMetaDataPtr> output_files_;
+
+    // 是否需要删除压缩文件
+    bool need_delete_{true};
 };
 
 class TableMetaData {

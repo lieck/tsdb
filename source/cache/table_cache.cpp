@@ -23,7 +23,8 @@ auto TableCache::NewTableIterator(const FileMetaDataPtr& file_meta_data) -> std:
 void TableCache::AddSSTable(std::unique_ptr<SSTable> sstable) {
     std::scoped_lock<std::mutex> lock(mutex_);
     auto file_number = sstable->GetFileNumber();
-    cache_.Insert(file_number, std::move(sstable), 1);
+    auto handle = cache_.Insert(file_number, std::move(sstable), 1);
+    cache_.Release(handle);
 }
 
 auto TableCache::FindTable(const FileMetaDataPtr& file_meta_data) -> CacheHandle<SSTable> * {

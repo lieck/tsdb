@@ -8,8 +8,9 @@
 namespace LindormContest {
 
 FileMetaData::FileMetaData(file_number_t file_number, InternalKey smallest, InternalKey largest,
-                           uint64_t file_size): file_number_(file_number), smallest_(std::move(smallest)),
-                           largest_(std::move(largest)), file_size_(file_size) {
+                           uint64_t file_size, int64_t max_timestamp): file_number_(file_number),
+                           smallest_(std::move(smallest)), largest_(std::move(largest)), file_size_(file_size),
+                           max_timestamp_(max_timestamp) {
     // 简单的复制 leveldb
     allowed_seeks_ = static_cast<uint32_t>(file_size_ / 16384U);
     if(allowed_seeks_ < 100) {
@@ -18,10 +19,14 @@ FileMetaData::FileMetaData(file_number_t file_number, InternalKey smallest, Inte
 }
 
 FileMetaData::FileMetaData(const std::string &src) {
+
     file_number_ = CodingUtil::DecodeFixed64(src.data());
     file_size_ = CodingUtil::DecodeFixed64(src.data() + 4);
     smallest_ = InternalKey(src.substr(12, INTERNAL_KEY_SIZE));
     largest_ = InternalKey(src.substr(12 + INTERNAL_KEY_SIZE, INTERNAL_KEY_SIZE));
+
+    uint32_t offset = 12 + INTERNAL_KEY_SIZE + INTERNAL_KEY_SIZE;
+    max_timestamp_ = CodingUtil::DecodeFixed64(src.data() + offset);
     allowed_seeks_ = static_cast<uint32_t>(file_size_ / 16384U);
 }
 
@@ -35,6 +40,9 @@ void FileMetaData::EncodeTo(std::string *dst) const {
 
     dst->append(smallest_.Encode());
     dst->append(largest_.Encode());
+
+    CodingUtil::EncodeValue(buffer, max_timestamp_);
+    dst->append(buffer, sizeof(max_timestamp_));
 }
 
 class FileMetaDataIterator : public Iterator {

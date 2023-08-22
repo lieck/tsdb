@@ -34,8 +34,8 @@ private:
                           const std::set<std::string> *columns, std::vector<Row> *result)
          : vin_(vin), time_lower_bound_(time_lower_bound), time_upper_bound_(time_upper_bound), columns_(columns),
          result_(result) {
-            lower_bound_ = InternalKey(vin_, time_lower_bound_);
-            upper_bound_ = InternalKey(vin_, time_upper_bound_);
+            lower_bound_ = InternalKey(vin_, time_upper_bound);
+            upper_bound_ = InternalKey(vin_, time_lower_bound);
         }
     };
 
@@ -74,6 +74,9 @@ public:
     auto WriteMetaData(std::ofstream &file) const -> void;
 
     auto TestGetTableMetaData() -> TableMetaData& { return table_meta_data_; }
+
+    void EraseSSTableFile();
+
 private:
     // 查询 memtable 内符合时间范围的元素
     auto MemTableRangeQuery(Table::RangeQueryRequest &req, const std::shared_ptr<MemTable>& memtable) -> void;
@@ -93,6 +96,8 @@ private:
     // 执行 Manual Compaction
     auto DoManualCompaction(CompactionTask* task) -> bool;
 
+    void StartMemTableCompaction(const std::shared_ptr<MemTable> mem);
+
     // 执行 Minor Compaction
     auto CompactMemTable(const std::shared_ptr<MemTable>& mem) -> FileMetaDataPtr;
 
@@ -110,8 +115,10 @@ private:
     TableMetaData table_meta_data_;
     std::shared_ptr<MemTable> mem_;
     std::vector<std::shared_ptr<MemTable>> imm_;
-    bool is_compaction_running_{false}; // 是否正在压缩
     std::queue<const WriteRequest*> write_queue_;   // 写请求队列
+
+    // 当前正在压缩的线程数量
+    int32_t compaction_thread_count_{0};
 };
 
 }  // namespace LindormContest

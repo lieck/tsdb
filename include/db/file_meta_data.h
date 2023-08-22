@@ -7,13 +7,13 @@
 
 namespace LindormContest {
 
-const constexpr uint32_t FILE_META_DATA_SIZE = INTERNAL_KEY_SIZE * 2 + sizeof(uint64_t) + sizeof(uint32_t);
+const constexpr uint32_t FILE_META_DATA_SIZE = INTERNAL_KEY_SIZE * 2 + 2 * sizeof(uint64_t) + sizeof(uint32_t);
 
 class FileMetaData {
 public:
     explicit FileMetaData() = default;
 
-    explicit FileMetaData(file_number_t file_number, InternalKey smallest, InternalKey largest, uint64_t file_size);
+    explicit FileMetaData(file_number_t file_number, InternalKey smallest, InternalKey largest, uint64_t file_size, int64_t max_timestamp);
 
     explicit FileMetaData(const std::string &src);
 
@@ -37,6 +37,8 @@ public:
 
     InternalKey smallest_;
     InternalKey largest_;
+
+    int64_t max_timestamp_;
 
     uint32_t allowed_seeks_{};
 };
