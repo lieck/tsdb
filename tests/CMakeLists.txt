@@ -37,7 +37,7 @@ foreach (ljdb_test_source ${LJDB_TEST_SOURCES})
           TIMEOUT 120
           )
 
-  target_link_libraries(${ljdb_test_name} ljdb gtest gmock_main gmock)
+  target_link_libraries(${ljdb_test_name} ljdb gtest gmock_main gmock snappy)
 
   # Set test target properties and dependencies.
   set_target_properties(${ljdb_test_name}
