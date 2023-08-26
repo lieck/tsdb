@@ -1,5 +1,6 @@
 
 #include <algorithm>
+#include "snappy/snappy.h"
 
 #include "sstable/sstable.h"
 #include "util/coding.h"
@@ -49,10 +50,18 @@ auto SSTable::ReadBlock(void *arg, const std::string &key) -> std::unique_ptr<It
     }
 
     // cache 不存在, 从磁盘中读取
-    char *block_buffer = new char[block_header.size_];
-    DiskManager::ReadBlock(sstable->file_number_, block_buffer, block_header.size_, block_header.offset_);
-    auto block = new Block(block_buffer, block_header.size_);
+    char *disk_buffer = new char[block_header.size_];
+    DiskManager::ReadBlock(sstable->file_number_, disk_buffer, block_header.size_, block_header.offset_);
 
+    // 解压
+    std::string uncompressed;
+    snappy::Uncompress(disk_buffer, block_header.size_, &uncompressed);
+    delete[] disk_buffer;
+
+    char *block_buffer = new char[uncompressed.size()];
+    std::copy(uncompressed.begin(), uncompressed.end(), block_buffer);
+
+    auto block = new Block(block_buffer, uncompressed.size());
     auto iter = block->NewIterator();
 
     if(sstable->cache_ != nullptr) {

@@ -1,4 +1,4 @@
-
+#include "snappy/snappy.h"
 #include "sstable/sstable_builder.h"
 #include "common/macros.h"
 #include "common/exception.h"
@@ -32,19 +32,22 @@ auto SStableBuilder::FlushBlock() -> void {
 
         // TODO(check sum)
 
-        // TODO(write file) 写入压缩后的数据, 校验和
-        DiskManager::WriteBlock(file_, block->GetData(), block->GetDataSize());
+        // 压缩并写入
+        std::string compressed;
+        snappy::Compress(block->GetData(), block->GetDataSize(), &compressed);
+        DiskManager::WriteBlock(file_, compressed.data(), compressed.size());
 
         auto block_id = offset_;
 
         // update block meta
-        block_meta_.emplace_back(offset_, block->GetDataSize(), end_key_);
-        offset_ += block->GetDataSize();
+        block_meta_.emplace_back(offset_, compressed.size(), end_key_);
+        offset_ += compressed.size();
 
         // block cache
         if(block_cache_ != nullptr) {
+            auto block_size = block->GetDataSize();
             auto bh = block_cache_->Insert(
-                    GetBlockCacheID(block_id), std::move(block), block->GetDataSize());
+                    GetBlockCacheID(block_id), std::move(block), block_size);
             block_cache_->Release(bh);
         }
 

@@ -18,6 +18,9 @@ else ()
     set(CMAKE_CXX_COMPILER "g++")
 endif ()
 
+add_compile_options(-Wno-error)
+
+
 
 ######################################################################################################################
 # DEPENDENCIES
@@ -35,6 +38,7 @@ include_directories(${PROJECT_SOURCE_DIR}/include)
 include_directories(${PROJECT_SOURCE_DIR}/tests/include)
 include_directories(BEFORE source) # This is needed for gtest.
 
+
 ######################################################################################################################
 # Other CMake modules
 # MUST BE ADDED AFTER CONFIGURING COMPILER PARAMETERS
@@ -43,6 +47,8 @@ include_directories(BEFORE source) # This is needed for gtest.
 add_subdirectory(source)
 add_subdirectory(tests)
 add_subdirectory(example)
+
+
 
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=[sanitizer_name] [additional_options] [-g] [-OX]")
