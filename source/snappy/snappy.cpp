@@ -26,9 +26,9 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#include "snappy-internal.h"
-#include "snappy-sinksource.h"
-#include "snappy.h"
+#include "snappy/snappy-internal.h"
+#include "snappy/snappy-sinksource.h"
+#include "snappy/snappy.h"
 #if !defined(SNAPPY_HAVE_BMI2)
 // __BMI2__ is defined by GCC and Clang. Visual Studio doesn't target BMI2
 // specifically, but it does define __AVX2__ when AVX2 support is available.

@@ -29,7 +29,7 @@
 #include <stddef.h>
 #include <cstring>
 
-#include "snappy-sinksource.h"
+#include "snappy/snappy-sinksource.h"
 
 namespace snappy {
 

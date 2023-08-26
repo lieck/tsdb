@@ -32,7 +32,7 @@
 #define THIRD_PARTY_SNAPPY_OPENSOURCE_SNAPPY_STUBS_INTERNAL_H_
 
 #if HAVE_CONFIG_H
-#include "config.h"
+#include "snappy/config.h"
 #endif
 
 #include <stdint.h>
@@ -67,7 +67,7 @@
 #define SNAPPY_ANNOTATE_MEMORY_IS_INITIALIZED(address, size) /* empty */
 #endif  // __has_feature(memory_sanitizer)
 
-#include "snappy-stubs-public.h"
+#include "snappy/snappy-stubs-public.h"
 
 // Used to enable 64-bit optimized versions of some routines.
 #if defined(__PPC64__) || defined(__powerpc64__)

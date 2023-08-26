@@ -5,6 +5,7 @@ add_subdirectory(disk)
 add_subdirectory(mem_table)
 add_subdirectory(sstable)
 add_subdirectory(struct)
+add_subdirectory(snappy)
 
 add_library(ljdb STATIC ${ALL_OBJECT_FILES} TSDBEngineImpl.cpp)
 
@@ -15,6 +16,7 @@ set(LJDB_LIBS
         ljdb_db
         ljdb_disk
         ljdb_common
+        snappy
         )
 
 target_link_libraries(ljdb ${LJDB_LIBS})

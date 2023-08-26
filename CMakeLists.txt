@@ -18,6 +18,9 @@ else ()
     set(CMAKE_CXX_COMPILER "g++")
 endif ()
 
+add_compile_options(-Wno-error)
+
+
 
 ######################################################################################################################
 # DEPENDENCIES
@@ -30,9 +33,6 @@ enable_testing()
 # COMPILER SETUP
 ######################################################################################################################
 
-include_directories(${CMAKE_SOURCE_DIR}/thirdparty/snappy)
-
-
 # Includes.
 include_directories(${PROJECT_SOURCE_DIR}/include)
 include_directories(${PROJECT_SOURCE_DIR}/tests/include)
@@ -43,8 +43,6 @@ include_directories(BEFORE source) # This is needed for gtest.
 # Other CMake modules
 # MUST BE ADDED AFTER CONFIGURING COMPILER PARAMETERS
 ######################################################################################################################
-
-add_subdirectory(thirdparty/snappy)
 
 add_subdirectory(source)
 add_subdirectory(tests)

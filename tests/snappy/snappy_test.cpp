@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 #include <iostream>
 #include <string>
-#include <snappy.h>
+#include "snappy/snappy.h"
 
 TEST(SnappyTest, BasicAssertions) {
     std::string input = "Hello, world!";
@@ -14,7 +14,7 @@ TEST(SnappyTest, BasicAssertions) {
     // 解压缩数据
     snappy::Uncompress(compressed.data(), compressed.size(), &decompressed);
 
-    std::cout << "Original: " << input << std::endl;
+    std::cout << "Original: " << input << '\n';
     std::cout << "Compressed: " << compressed << std::endl;
     std::cout << "Decompressed: " << decompressed << std::endl;
 }
